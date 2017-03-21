@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {number_format, Render} from '../tools/tools'
+import {number_format, Render, carouselInit} from '../tools/tools'
 import {Scrollbars} from 'react-custom-scrollbars';
 
 console.log('Render: ', Render);
@@ -14,13 +14,15 @@ export default class SearchResultList extends Component {
         this.state = {
             page: 1,
             arXHR: [],
-            isRender: true,
+            isRender: false,
+            coordinates: [],
+            yandexMapInited: false,
 
 
             SEARCH: {},
             HOTELS_INFO: {},
             USER_FAV: [],
-            isMapWide: true,
+            isMapWide: false,
             //SEARCH_RAW: {},
             //isLoading: true,
             //isLoadingLT: true,
@@ -54,90 +56,346 @@ export default class SearchResultList extends Component {
         console.log('LL_API_IN: ', this.LL_API_IN);
         console.log('=====================================');
 
+        this.map = {
+            inited: false,
+            polygon: null,
+            entity: null,
+        }
 
     }
 
     componentDidMount() {
 
-        //this.getNtkHotelList();
+        this.getNtkHotelList();
 
-        this.initMap();
-
-        Render.init({
-            object: this,
-            canvas: this.refs.canvas
-        });
 
     }
 
     initMap() {
-        //Set coordinates
-        var latlng = new google.maps.LatLng(36.469167, 32.115);
+        if (!ymaps) return;
 
-        //Set map options
-        var options = {
-            center: latlng,
-            zoom: 15,
-            disableDefaultUI: true,
-            mapTypeId: google.maps.MapTypeId.ROADMAP
-        };
+        if (this.map.inited) return;
 
-        //Create styled and normal map
-        var map = new google.maps.Map(document.getElementById('map'), options);
+        try {
 
-        //Create InfoWindow
-        var infowindow = new google.maps.InfoWindow({
-            content: '<b>Офис продаж</b><br><address>Москва, Лукоянов, ул. Пушкина, дом 59, корп.В</address>'
-        });
+            this.map.entity = new ymaps.Map("map", {
+                center: [55.031284, 44.459611],
+                zoom: 7,
+                controls: ['zoomControl']
+            }, {suppressMapOpenBlock: true});
 
-        var marker = new google.maps.Marker({
-            position: latlng,
-            map: map,
-            animation: google.maps.Animation.DROP,
-            icon: '/local/tpl/dist/static/i/icon-map.png'
-        });
+            this.map.inited = true;
+            this.setState({yandexMapInited: true})
 
-        //Open InfoWindow
-        google.maps.event.addListener(marker, 'click', function () {
-            infowindow.open(map, marker);
-        });
-
-
-    };
+        } catch (e) {
+            console.warn('initMap error: ', e);
+        }
+    }
 
     renderButtonClick() {
-        this.setState({
-            isRender: !this.state.isRender,
+
+        Render.erase();
+        this.map.entity.geoObjects.remove(this.map.polygon);
+
+        if (this.state.coordinates.length) {
+            this.setState({
+                isRender: false,
+                coordinates: [],
+            });
+        } else {
+            this.setState({
+                isRender: !this.state.isRender,
+            });
+        }
+
+    }
+
+    renderMapPoints(search) {
+
+
+        if (!this.state.yandexMapInited) return;
+
+        if (this.map.collection) {
+            this.map.collection.removeAll();
+        } else {
+            this.map.collection = new ymaps.GeoObjectCollection();
+        }
+
+        let MyBalloonLayout = ymaps.templateLayoutFactory.createClass(
+            '<div class="balloon hoteldetail" data-href="$[properties.hotelLink]" >' +
+            '<div class="balloon__header">' +
+            '<a href="#" class="balloon__close close">&times;</a>' +
+            '<b>$[properties.hotelName]</b>' +
+            '$[properties.hotelStarHtml]' +
+            '</div>' +
+            '<div class="balloon__content">' +
+            '$[[options.contentLayout ]]' +
+            '</div>' +
+            '<div class="arrow"></div>' +
+            '</div>', {
+
+                /**
+                 * Строит экземпляр макета на основе шаблона и добавляет его в родительский HTML-элемент.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#build
+                 * @function
+                 * @name build
+                 */
+                build: function () {
+                    this.constructor.superclass.build.call(this);
+
+                    this._$element = $('.balloon', this.getParentElement());
+
+                    this.applyElementOffset();
+
+                    this._$element.find('.close')
+                        .on('click', $.proxy(this.onCloseClick, this));
+                },
+
+                /**
+                 * Удаляет содержимое макета из DOM.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#clear
+                 * @function
+                 * @name clear
+                 */
+                clear: function () {
+                    this._$element.find('.close')
+                        .off('click');
+
+                    this.constructor.superclass.clear.call(this);
+                },
+
+                /**
+                 * Метод будет вызван системой шаблонов АПИ при изменении размеров вложенного макета.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+                 * @function
+                 * @name onSublayoutSizeChange
+                 */
+                onSublayoutSizeChange: function () {
+                    MyBalloonLayout.superclass.onSublayoutSizeChange.apply(this, arguments);
+
+                    if (!this._isElement(this._$element)) {
+                        return;
+                    }
+
+                    this.applyElementOffset();
+
+                    this.events.fire('shapechange');
+                },
+
+                /**
+                 * Сдвигаем балун, чтобы "хвостик" указывал на точку привязки.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+                 * @function
+                 * @name applyElementOffset
+                 */
+                applyElementOffset: function () {
+                    this._$element.css({
+                        left: -(this._$element[0].offsetWidth / 2),
+                        top: -(this._$element[0].offsetHeight + this._$element.find('.arrow')[0].offsetHeight)
+                    });
+                },
+
+                /**
+                 * Закрывает балун при клике на крестик, кидая событие "userclose" на макете.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+                 * @function
+                 * @name onCloseClick
+                 */
+                onCloseClick: function (e) {
+                    e.preventDefault();
+
+                    this.events.fire('userclose');
+                },
+
+                /**
+                 * Используется для автопозиционирования (balloonAutoPan).
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/ILayout.xml#getClientBounds
+                 * @function
+                 * @name getClientBounds
+                 * @returns {Number[][]} Координаты левого верхнего и правого нижнего углов шаблона относительно точки привязки.
+                 */
+                getShape: function () {
+                    if (!this._isElement(this._$element)) {
+                        return MyBalloonLayout.superclass.getShape.call(this);
+                    }
+
+                    var position = this._$element.position();
+
+                    return new ymaps.shape.Rectangle(new ymaps.geometry.pixel.Rectangle([
+                        [position.left, position.top], [
+                            position.left + this._$element[0].offsetWidth,
+                            position.top + this._$element[0].offsetHeight + this._$element.find('.arrow')[0].offsetHeight
+                        ]
+                    ]));
+                },
+
+                /**
+                 * Проверяем наличие элемента (в ИЕ и Опере его еще может не быть).
+                 * @function
+                 * @private
+                 * @name _isElement
+                 * @param {jQuery} [element] Элемент.
+                 * @returns {Boolean} Флаг наличия.
+                 */
+                _isElement: function (element) {
+                    return element && element[0] && element.find('.arrow')[0];
+                }
+            });
+
+        var BalloonContentLayout = ymaps.templateLayoutFactory.createClass(
+            `
+            <div class="ballon-in-wp">
+                <p>Цена: <b>{{properties.price}} Р</b></p>
+                <p>{{properties.descr}}</p>
+                <!--<div id="wheel" class="wheel-on-map-ballon">
+                    <div id="uiThrobber" class="momondo-wheel momondo-wheel--spinning">
+                        <svg height="90%" viewBox="0 0 20 20" width="90%" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient gradientUnits="userSpaceOnUse" id="b" x2="3" y1="3" y2="3">
+                                    <stop stop-color="#fcb913" offset="0"></stop>
+                                    <stop stop-color="#fbac15" offset=".07"></stop>
+                                    <stop stop-color="#f57a1b" offset=".37"></stop>
+                                    <stop stop-color="#f15620" offset=".64"></stop>
+                                    <stop stop-color="#ef4023" offset=".86"></stop>
+                                    <stop stop-color="#ee3824" offset="1"></stop>
+                                </linearGradient>
+
+                                <linearGradient gradientUnits="userSpaceOnUse" id="c" x2="3" y1="3" y2="3">
+                                    <stop stop-color="#48c3d6" offset="0"></stop>
+                                    <stop stop-color="#42bbd3" offset=".17"></stop>
+                                    <stop stop-color="#32a6ca" offset=".44"></stop>
+                                    <stop stop-color="#1784bb" offset=".76"></stop>
+                                    <stop stop-color="#0067ae" offset="1"></stop>
+                                </linearGradient>
+
+                                <linearGradient gradientUnits="userSpaceOnUse" id="d" x2="3" y1="3" y2="3">
+                                    <stop stop-color="#E84698" offset="0"></stop>
+                                    <stop stop-color="#E64392" offset=".18"></stop>
+                                    <stop stop-color="#E23C82" offset=".41"></stop>
+                                    <stop stop-color="#DB3166" offset=".68"></stop>
+                                    <stop stop-color="#D12040" offset=".97"></stop>
+                                    <stop stop-color="#D01F3D" offset="1"></stop>
+                                </linearGradient>
+                            </defs>
+                            <g class="petals">
+                                <path fill="#5298c9" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(300 1.57 10)"></path>
+                                <path fill="#4b91c4" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(330 1.57 10)"></path>
+                                <path fill="#448bbf" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(0 1.57 10)"></path>
+                                <path fill="#3c83b9" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(30 1.57 10)"></path>
+                                <path fill="#347bb3" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(60 1.57 10)"></path>
+                                <path fill="#2a70ac" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(90 1.57 10)"></path>
+                                <path fill="#2167a3" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(120 1.57 10)"></path>
+                                <path fill="#2369a5" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(150 1.57 10)"></path>
+                                <path fill="#1b619f" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(180 1.57 10)"></path>
+                                <path fill="#185e9c" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(210 1.57 10)"></path>
+                                <path fill="#125896" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(240 1.57 10)"></path>
+                                <path fill="#0d5494" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(270 1.57 10)"></path>
+                            </g>
+                        </svg>
+                    </div>
+
+                </div>--> 
+            </div>
+            `, {});
+
+        this.map.markers = [];
+        
+        
+        search.map((item) => {
+             
+            if (!(this.state.HOTELS_INFO && this.state.HOTELS_INFO[item.HOTEL_INFO_ID] && this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS)) {
+                console.log('this.state.HOTELS_INFO[item.HOTEL_INFO_ID] ',this.state.HOTELS_INFO[item.HOTEL_INFO_ID]);
+                return;
+            }
+
+            let point = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS;
+
+            console.log('point: ', point);
+
+            point = point.split(',');
+
+            if(this.state.coordinates.length && (this.map.polygon && !this.map.polygon.geometry.contains([point[0], point[1]]))){
+                return;
+            }
+
+
+            let price = number_format(item.Price, 0, ',', ' ');
+
+            let stars = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS;
+            let starsInt = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS_INT;
+            let starsHtml = '';
+
+            if (starsInt > 0) {
+                starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
+            } else if (starsInt == 0) {
+                starsHtml = '';
+            } else {
+                starsHtml = <div class="rating_litera"> {stars} </div>
+            }
+
+
+            this.map.markers[item.HOTEL_INFO_ID] = new ymaps.Placemark([point[0], point[1]], {
+                price: price,
+                descr: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].LOCATION,
+                hotelName: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].NAME,
+                hotelStarHtml: starsHtml,
+                hotelLink: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].DETAIL_LINK,
+            }, {
+                balloonContentLayout: BalloonContentLayout,
+                balloonLayout: MyBalloonLayout,
+                balloonPanelMaxMapArea: 0,
+                iconLayout: 'default#image',
+                iconImageHref: 'mark.png',
+                iconImageSize: [22, 33],
+                iconImageOffset: [-12, -42]
+            });
+
+
+            this.map.collection.add(this.map.markers[item.HOTEL_INFO_ID])
+
+            this.map.markers[item.HOTEL_INFO_ID].events
+                .add('mouseenter', function (e) {
+                    e.get('target').options.set('iconImageHref', 'mark_hov.png');
+                })
+                .add('mouseleave', function (e) {
+                    e.get('target').options.set('iconImageHref', 'mark.png');
+                });
+
+
         });
+
+        this.map.entity.geoObjects.add(this.map.collection);
+
+        let bounds = this.map.entity.geoObjects.getBounds();
+
+        if (bounds) {
+            this.map.entity.setBounds(bounds, {checkZoomRange: true});
+        }
+
+
     }
 
     componentDidUpdate() {
 
-        $('.carousel-in').each(function () {
-            let $root = $(this);
-            let $thumbs = $root.next('.carousel-in-thumbs');
+        carouselInit();
 
-            $root.slick({
-                accessibility: false,
-                dots: false,
-                arrows: true,
-                fade: true
-            });
 
-            $thumbs.on('click', '.list__item', function () {
-                $root.slick('slickGoTo', $(this).index());
-            });
+        this.initMap();
 
-            $root.on('beforeChange', function (event, slick, currentSlide, nextSlide) {
-                $thumbs.find('li').eq(nextSlide).addClass('-active').siblings('li').removeClass('-active');
+
+        if (this.state.yandexMapInited) {
+
+            Render.init({
+                reactApp: this,
+                canvas: this.refs.canvas,
+                projection: this.map.entity.options.get('projection'),
             });
-        });
+        }
 
 
     }
 
     mapTrigger() {
-        this.initMap();
         this.setState({isMapWide: !this.state.isMapWide});
     }
 
@@ -220,11 +478,8 @@ export default class SearchResultList extends Component {
 
     }
 
-    renderHotels() {
+    renderHotels(search = []) {
 
-        let search = Object.values(this.state.SEARCH);
-
-        search.filter(i => +i.Price > 0);
         return search.map((hotel, idx) => {
             let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
 
@@ -317,7 +572,27 @@ export default class SearchResultList extends Component {
         const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
         const tourSearchMap = this.state.isMapWide ? 'col__right tour-search__map' : 'col__right tour-search__map small';
         const canvasCls = this.state.isRender ? 'canvas-opened' : 'canvas-closed';
-        const renderButtonCaption = this.state.isRender ? 'Отменить' : 'Обвести';
+
+        let renderButtonCaption = 'Обвести';
+
+        console.log('render');
+
+        console.log('this.state.isRender: ', this.state.isRender);
+        console.log('this.state.coordinates.length: ', this.state.coordinates.length);
+
+        if (this.state.isRender) {
+            renderButtonCaption = 'Отменить';
+
+        } else if (this.state.coordinates.length) {
+            renderButtonCaption = 'Очистить';
+        }
+
+
+        let search = Object.values(this.state.SEARCH);
+
+        search.filter(i => +i.Price > 0);
+
+        this.renderMapPoints(search);
 
         return (
             <div className="inner">
@@ -333,6 +608,21 @@ export default class SearchResultList extends Component {
                             <div className="row tour-search">
                                 <div className={tourSearchMap}>
                                     <div className="tour-search__map__wrap">
+                                        <div id="map">
+                                            <canvas
+                                                id="canvas-on-map"
+                                                onMouseMove={this.onCanvasMouseMove}
+                                                onMouseDown={this.onCanvasMouseDown}
+                                                onMouseUp={this.onCanvasMouseUp}
+                                                onMouseOut={this.onCanvasMouseOut}
+                                                onTouchStart={this.onCanvasTouchStart}
+                                                onTouchMove={this.onCanvasTouchMove}
+                                                onTouchEnd={this.onCanvasTouchEnd}
+                                                className={canvasCls}
+                                                ref="canvas"
+                                            ></canvas>
+                                        </div>
+
                                         <div style={{zIndex: 101}} className={mapTriggerWpCls}
                                              onClick={this.mapTrigger}><span className={mapTriggerIcon}></span><span
                                             className="label">{mapTriggerLabel}</span></div>
@@ -341,18 +631,6 @@ export default class SearchResultList extends Component {
                                             onClick={this.renderButtonClick}
                                             className="tour-search__map__draw"><span>{renderButtonCaption}</span>
                                         </div>
-                                        <canvas
-                                            onMouseMove={this.onCanvasMouseMove}
-                                            onMouseDown={this.onCanvasMouseDown}
-                                            onMouseUp={this.onCanvasMouseUp}
-                                            onMouseOut={this.onCanvasMouseOut}
-                                            onTouchStart={this.onCanvasTouchStart}
-                                            onTouchMove={this.onCanvasTouchMove}
-                                            onTouchEnd={this.onCanvasTouchEnd}
-                                            className={canvasCls}
-                                            ref="canvas"
-                                            ></canvas>
-                                        <div id="map" style={{overflow: 'visible', minHeight: '500px'}}></div>
 
                                     </div>
 
@@ -377,7 +655,7 @@ export default class SearchResultList extends Component {
 
                                     <ul className="list -inline tour-search__results__list scroll-content">
                                         <Scrollbars style={{height: 600}}>
-                                            {this.renderHotels()}
+                                            {this.renderHotels(search)}
                                         </Scrollbars>
                                     </ul>
 
