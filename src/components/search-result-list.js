@@ -1,9 +1,8 @@
 import React, {Component} from 'react';
 import {number_format, Render, carouselInit} from '../tools/tools'
 import {Scrollbars} from 'react-custom-scrollbars';
-
-console.log('Render: ', Render);
-
+import {Loader} from './loader';
+//import {baloonLayout, baloonContentTemplate} from './baloon';
 
 export default class SearchResultList extends Component {
 
@@ -17,21 +16,10 @@ export default class SearchResultList extends Component {
             isRender: false,
             coordinates: [],
             yandexMapInited: false,
-
-
             SEARCH: {},
             HOTELS_INFO: {},
             USER_FAV: [],
             isMapWide: false,
-            //SEARCH_RAW: {},
-            //isLoading: true,
-            //isLoadingLT: true,
-            //chkLTResNum: 0,
-            //ltUsedOperators: [],
-            //completedRequests: {},
-            //boundsFirst: true,
-            //isBtnOn: false,
-
         };
 
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
@@ -45,11 +33,15 @@ export default class SearchResultList extends Component {
 
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
 
+        this.mapZoom = 7,
+        this.mapCenter = [55.031284, 44.459611],
+
 
         this.arXHRs = [];
 
         this.mapTrigger = this.mapTrigger.bind(this);
         this.renderButtonClick = this.renderButtonClick.bind(this);
+        this.onScrollBottonClick = this.onScrollBottonClick.bind(this);
 
         console.log('=====================================');
         console.log('NTK_PACk_TYPES: ', this.NTK_PACk_TYPES);
@@ -68,27 +60,46 @@ export default class SearchResultList extends Component {
 
         this.getNtkHotelList();
 
+    }
+
+    onScrollBottonClick() {
+
+        const {scrollbars} = this.refs;
+        const scrollHeight = scrollbars.getScrollHeight();
+        const cartHeight = 255;
+        const newVal = Math.round(scrollbars.getScrollTop() / cartHeight) * cartHeight + cartHeight;
+
+        if (newVal < scrollHeight) {
+            scrollbars.scrollTop(newVal);
+        }
 
     }
 
     initMap() {
+
+        console.log('--->initMap()');
+
+
         if (!ymaps) return;
 
-        if (this.map.inited) return;
+        if (this.state.yandexMapInited) return;
 
         try {
 
+            console.log('--->initMap() ->> try');
+
             this.map.entity = new ymaps.Map("map", {
-                center: [55.031284, 44.459611],
-                zoom: 7,
+                center: this.mapCenter,
+                zoom: this.mapZoom,
                 controls: ['zoomControl']
             }, {suppressMapOpenBlock: true});
 
+
             this.map.inited = true;
-            this.setState({yandexMapInited: true})
+            this.setState({yandexMapInited: true});
 
         } catch (e) {
-            console.warn('initMap error: ', e);
+            //console.warn('initMap error: ', e);
         }
     }
 
@@ -112,7 +123,6 @@ export default class SearchResultList extends Component {
 
     renderMapPoints(search) {
 
-
         if (!this.state.yandexMapInited) return;
 
         if (this.map.collection) {
@@ -121,200 +131,149 @@ export default class SearchResultList extends Component {
             this.map.collection = new ymaps.GeoObjectCollection();
         }
 
-        let MyBalloonLayout = ymaps.templateLayoutFactory.createClass(
-            '<div class="balloon hoteldetail" data-href="$[properties.hotelLink]" >' +
-            '<div class="balloon__header">' +
-            '<a href="#" class="balloon__close close">&times;</a>' +
-            '<b>$[properties.hotelName]</b>' +
-            '$[properties.hotelStarHtml]' +
-            '</div>' +
-            '<div class="balloon__content">' +
-            '$[[options.contentLayout ]]' +
-            '</div>' +
-            '<div class="arrow"></div>' +
-            '</div>', {
-
-                /**
-                 * Строит экземпляр макета на основе шаблона и добавляет его в родительский HTML-элемент.
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#build
-                 * @function
-                 * @name build
-                 */
-                build: function () {
-                    this.constructor.superclass.build.call(this);
-
-                    this._$element = $('.balloon', this.getParentElement());
-
-                    this.applyElementOffset();
-
-                    this._$element.find('.close')
-                        .on('click', $.proxy(this.onCloseClick, this));
-                },
-
-                /**
-                 * Удаляет содержимое макета из DOM.
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#clear
-                 * @function
-                 * @name clear
-                 */
-                clear: function () {
-                    this._$element.find('.close')
-                        .off('click');
-
-                    this.constructor.superclass.clear.call(this);
-                },
-
-                /**
-                 * Метод будет вызван системой шаблонов АПИ при изменении размеров вложенного макета.
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
-                 * @function
-                 * @name onSublayoutSizeChange
-                 */
-                onSublayoutSizeChange: function () {
-                    MyBalloonLayout.superclass.onSublayoutSizeChange.apply(this, arguments);
-
-                    if (!this._isElement(this._$element)) {
-                        return;
-                    }
-
-                    this.applyElementOffset();
-
-                    this.events.fire('shapechange');
-                },
-
-                /**
-                 * Сдвигаем балун, чтобы "хвостик" указывал на точку привязки.
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
-                 * @function
-                 * @name applyElementOffset
-                 */
-                applyElementOffset: function () {
-                    this._$element.css({
-                        left: -(this._$element[0].offsetWidth / 2),
-                        top: -(this._$element[0].offsetHeight + this._$element.find('.arrow')[0].offsetHeight)
-                    });
-                },
-
-                /**
-                 * Закрывает балун при клике на крестик, кидая событие "userclose" на макете.
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
-                 * @function
-                 * @name onCloseClick
-                 */
-                onCloseClick: function (e) {
-                    e.preventDefault();
-
-                    this.events.fire('userclose');
-                },
-
-                /**
-                 * Используется для автопозиционирования (balloonAutoPan).
-                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/ILayout.xml#getClientBounds
-                 * @function
-                 * @name getClientBounds
-                 * @returns {Number[][]} Координаты левого верхнего и правого нижнего углов шаблона относительно точки привязки.
-                 */
-                getShape: function () {
-                    if (!this._isElement(this._$element)) {
-                        return MyBalloonLayout.superclass.getShape.call(this);
-                    }
-
-                    var position = this._$element.position();
-
-                    return new ymaps.shape.Rectangle(new ymaps.geometry.pixel.Rectangle([
-                        [position.left, position.top], [
-                            position.left + this._$element[0].offsetWidth,
-                            position.top + this._$element[0].offsetHeight + this._$element.find('.arrow')[0].offsetHeight
-                        ]
-                    ]));
-                },
-
-                /**
-                 * Проверяем наличие элемента (в ИЕ и Опере его еще может не быть).
-                 * @function
-                 * @private
-                 * @name _isElement
-                 * @param {jQuery} [element] Элемент.
-                 * @returns {Boolean} Флаг наличия.
-                 */
-                _isElement: function (element) {
-                    return element && element[0] && element.find('.arrow')[0];
-                }
-            });
-
-        var BalloonContentLayout = ymaps.templateLayoutFactory.createClass(
-            `
-            <div class="ballon-in-wp">
-                <p>Цена: <b>{{properties.price}} Р</b></p>
-                <p>{{properties.descr}}</p>
-                <!--<div id="wheel" class="wheel-on-map-ballon">
-                    <div id="uiThrobber" class="momondo-wheel momondo-wheel--spinning">
-                        <svg height="90%" viewBox="0 0 20 20" width="90%" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient gradientUnits="userSpaceOnUse" id="b" x2="3" y1="3" y2="3">
-                                    <stop stop-color="#fcb913" offset="0"></stop>
-                                    <stop stop-color="#fbac15" offset=".07"></stop>
-                                    <stop stop-color="#f57a1b" offset=".37"></stop>
-                                    <stop stop-color="#f15620" offset=".64"></stop>
-                                    <stop stop-color="#ef4023" offset=".86"></stop>
-                                    <stop stop-color="#ee3824" offset="1"></stop>
-                                </linearGradient>
-
-                                <linearGradient gradientUnits="userSpaceOnUse" id="c" x2="3" y1="3" y2="3">
-                                    <stop stop-color="#48c3d6" offset="0"></stop>
-                                    <stop stop-color="#42bbd3" offset=".17"></stop>
-                                    <stop stop-color="#32a6ca" offset=".44"></stop>
-                                    <stop stop-color="#1784bb" offset=".76"></stop>
-                                    <stop stop-color="#0067ae" offset="1"></stop>
-                                </linearGradient>
-
-                                <linearGradient gradientUnits="userSpaceOnUse" id="d" x2="3" y1="3" y2="3">
-                                    <stop stop-color="#E84698" offset="0"></stop>
-                                    <stop stop-color="#E64392" offset=".18"></stop>
-                                    <stop stop-color="#E23C82" offset=".41"></stop>
-                                    <stop stop-color="#DB3166" offset=".68"></stop>
-                                    <stop stop-color="#D12040" offset=".97"></stop>
-                                    <stop stop-color="#D01F3D" offset="1"></stop>
-                                </linearGradient>
-                            </defs>
-                            <g class="petals">
-                                <path fill="#5298c9" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(300 1.57 10)"></path>
-                                <path fill="#4b91c4" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(330 1.57 10)"></path>
-                                <path fill="#448bbf" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(0 1.57 10)"></path>
-                                <path fill="#3c83b9" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(30 1.57 10)"></path>
-                                <path fill="#347bb3" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(60 1.57 10)"></path>
-                                <path fill="#2a70ac" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(90 1.57 10)"></path>
-                                <path fill="#2167a3" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(120 1.57 10)"></path>
-                                <path fill="#2369a5" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(150 1.57 10)"></path>
-                                <path fill="#1b619f" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(180 1.57 10)"></path>
-                                <path fill="#185e9c" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(210 1.57 10)"></path>
-                                <path fill="#125896" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(240 1.57 10)"></path>
-                                <path fill="#0d5494" d="M.123.104C.047.117-.01.187 0 .266l.95 6.142c.006.054.054.1.12.088.347-.046.666-.046 1.01 0 .066 0 .114-.023.118-.09l.948-6.13C3.16.18 3.104.115 3.013.102c-.972-.14-1.95-.136-2.89 0z" transform="translate(8.43) rotate(270 1.57 10)"></path>
-                            </g>
-                        </svg>
-                    </div>
-
-                </div>--> 
-            </div>
-            `, {});
 
         this.map.markers = [];
-        
-        
+
+
+        var MyBalloonLayout = ymaps.templateLayoutFactory.createClass(`
+            <div class="balloon hoteldetail" data-href="$[properties.hotelLink]" >
+                <div class="balloon__header">
+                    <a href="#" class="balloon__close close">×</a> 
+                    <div class="balloon__header--title">$[properties.hotelName]</div>
+                    $[properties.hotelStarHtml]
+                </div>
+                <div class="balloon__content">
+                    $[[options.contentLayout ]]
+                </div> 
+            </div>`
+            , {
+
+            /**
+             * Строит экземпляр макета на основе шаблона и добавляет его в родительский HTML-элемент.
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#build
+             * @function
+             * @name build
+             */
+            build: function () {
+                this.constructor.superclass.build.call(this);
+
+                this._$element = $('.balloon', this.getParentElement());
+
+                this.applyElementOffset();
+
+                this._$element.find('.close')
+                    .on('click', $.proxy(this.onCloseClick, this));
+            },
+
+            /**
+             * Удаляет содержимое макета из DOM.
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/layout.templateBased.Base.xml#clear
+             * @function
+             * @name clear
+             */
+            clear: function () {
+                this._$element.find('.close')
+                    .off('click');
+
+                this.constructor.superclass.clear.call(this);
+            },
+
+            /**
+             * Метод будет вызван системой шаблонов АПИ при изменении размеров вложенного макета.
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+             * @function
+             * @name onSublayoutSizeChange
+             */
+            onSublayoutSizeChange: function () {
+                MyBalloonLayout.superclass.onSublayoutSizeChange.apply(this, arguments);
+
+                if (!this._isElement(this._$element)) {
+                    return;
+                }
+
+                this.applyElementOffset();
+
+                this.events.fire('shapechange');
+            },
+
+            /**
+             * Сдвигаем балун, чтобы "хвостик" указывал на точку привязки.
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+             * @function
+             * @name applyElementOffset
+             */
+            applyElementOffset: function () {
+                this._$element.css({
+                    left: -((this._$element[0].offsetWidth / 2) - 6 ),
+                    top: -(this._$element[0].offsetHeight + 20 )
+                });
+            },
+
+            /**
+             * Закрывает балун при клике на крестик, кидая событие "userclose" на макете.
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IBalloonLayout.xml#event-userclose
+             * @function
+             * @name onCloseClick
+             */
+            onCloseClick: function (e) {
+                e.preventDefault();
+
+                this.events.fire('userclose');
+            },
+
+            /**
+             * Используется для автопозиционирования (balloonAutoPan).
+             * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/ILayout.xml#getClientBounds
+             * @function
+             * @name getClientBounds
+             * @returns {Number[][]} Координаты левого верхнего и правого нижнего углов шаблона относительно точки привязки.
+             */
+            getShape: function () {
+                if (!this._isElement(this._$element)) {
+                    return MyBalloonLayout.superclass.getShape.call(this);
+                }
+
+                var position = this._$element.position();
+
+                return new ymaps.shape.Rectangle(new ymaps.geometry.pixel.Rectangle([
+                    [position.left, position.top], [
+                        position.left + this._$element[0].offsetWidth,
+                        position.top + this._$element[0].offsetHeight + this._$element.find('.icon-icon-location-blue')[0].offsetHeight
+                    ]
+                ]));
+            },
+
+            /**
+             * Проверяем наличие элемента (в ИЕ и Опере его еще может не быть).
+             * @function
+             * @private
+             * @name _isElement
+             * @param {jQuery} [element] Элемент.
+             * @returns {Boolean} Флаг наличия.
+             */
+            _isElement: function (element) {
+                return element && element[0] && element.find('.icon-icon-location-blue')[0];
+            }
+        });
+
+        var BalloonContentLayout = ymaps.templateLayoutFactory.createClass(`
+                <div class="balloon-price">Цена от:  {{properties.price}} <span class="rub">Р</span></div>
+                <div class="balloon-destination">{{properties.descr}}</div>
+                <div class="icon-icon-location-blue "></div>  `, {});
+
+
+
         search.map((item) => {
-             
+
             if (!(this.state.HOTELS_INFO && this.state.HOTELS_INFO[item.HOTEL_INFO_ID] && this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS)) {
-                console.log('this.state.HOTELS_INFO[item.HOTEL_INFO_ID] ',this.state.HOTELS_INFO[item.HOTEL_INFO_ID]);
                 return;
             }
 
             let point = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS;
 
-            console.log('point: ', point);
-
             point = point.split(',');
 
-            if(this.state.coordinates.length && (this.map.polygon && !this.map.polygon.geometry.contains([point[0], point[1]]))){
+            if (this.state.coordinates.length && (this.map.polygon && !this.map.polygon.geometry.contains([point[0], point[1]]))) {
                 return;
             }
 
@@ -345,28 +304,27 @@ export default class SearchResultList extends Component {
                 balloonLayout: MyBalloonLayout,
                 balloonPanelMaxMapArea: 0,
                 iconLayout: 'default#image',
-                iconImageHref: 'mark.png',
-                iconImageSize: [22, 33],
+                iconImageHref: '/local/tpl/dist/static/i/icon-map.png',
+                iconImageSize: [32, 47],
                 iconImageOffset: [-12, -42]
             });
 
 
-            this.map.collection.add(this.map.markers[item.HOTEL_INFO_ID])
+            this.map.collection.add(this.map.markers[item.HOTEL_INFO_ID]);
 
             this.map.markers[item.HOTEL_INFO_ID].events
                 .add('mouseenter', function (e) {
-                    e.get('target').options.set('iconImageHref', 'mark_hov.png');
+                    e.get('target').options.set('iconImageHref', '/local/tpl/dist/static/i/icon-map-orange.png');
                 })
                 .add('mouseleave', function (e) {
-                    e.get('target').options.set('iconImageHref', 'mark.png');
+                    e.get('target').options.set('iconImageHref', '/local/tpl/dist/static/i/icon-map.png');
                 });
-
-
         });
 
         this.map.entity.geoObjects.add(this.map.collection);
 
-        let bounds = this.map.entity.geoObjects.getBounds();
+
+        const bounds = this.map.entity.geoObjects.getBounds();
 
         if (bounds) {
             this.map.entity.setBounds(bounds, {checkZoomRange: true});
@@ -392,11 +350,26 @@ export default class SearchResultList extends Component {
             });
         }
 
-
     }
 
     mapTrigger() {
-        this.setState({isMapWide: !this.state.isMapWide});
+
+        this.setState({isMapWide: !this.state.isMapWide}, () => {
+            if (this.map.entity) {
+
+                console.log('--->fitToViewport()');
+
+                this.map.entity.container.fitToViewport();
+
+                let bounds = this.map.entity.geoObjects.getBounds();
+
+                if (bounds) {
+                    this.map.entity.setBounds(bounds, {checkZoomRange: true});
+                }
+            }
+        });
+
+
     }
 
     getNtkHotelList() {
@@ -415,10 +388,15 @@ export default class SearchResultList extends Component {
                     cache: false,
                     beforeSend: () => {
                         console.log('before send ajax');
+
                     },
                 }).done(data => {
 
                     if (data && data.SEARCH instanceof Object) {
+
+                        console.log('=========================');
+                        console.log('NTK_API_IN: ', NTK_API_IN);
+                        console.log('=========================');
 
                         let minServices = '';
                         if (+NTK_API_IN['FlightType'] == 1) {
@@ -434,7 +412,15 @@ export default class SearchResultList extends Component {
                             data.SEARCH[key].minServices = minServices;
                         }
 
-                        let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                        let obSearch = {};
+
+                        if(+pack['FlightType'] === 2){ // туры с перелетом перекрывают то что уже получено
+                            obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
+                        }else{
+                            obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                        }
+
+
                         this.setState({
                             SEARCH: obSearch,
                             HOTELS_INFO: Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO),
@@ -481,6 +467,11 @@ export default class SearchResultList extends Component {
     renderHotels(search = []) {
 
         return search.map((hotel, idx) => {
+
+            if (this.state.coordinates.length) {
+                if(!this.map.markers[hotel.HOTEL_INFO_ID]) return;
+            }
+
             let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
 
             if (hotelInfo) {
@@ -569,16 +560,10 @@ export default class SearchResultList extends Component {
         const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
         const mapTriggerIcon = this.state.isMapWide ? 'icon-arrow-right' : 'icon-arrow-left';
         const mapTriggerWpCls = this.state.isMapWide ? 'tour-search__map__hide expand' : 'tour-search__map__hide ';
-        const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
         const tourSearchMap = this.state.isMapWide ? 'col__right tour-search__map' : 'col__right tour-search__map small';
         const canvasCls = this.state.isRender ? 'canvas-opened' : 'canvas-closed';
 
         let renderButtonCaption = 'Обвести';
-
-        console.log('render');
-
-        console.log('this.state.isRender: ', this.state.isRender);
-        console.log('this.state.coordinates.length: ', this.state.coordinates.length);
 
         if (this.state.isRender) {
             renderButtonCaption = 'Отменить';
@@ -587,12 +572,19 @@ export default class SearchResultList extends Component {
             renderButtonCaption = 'Очистить';
         }
 
+        const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
 
         let search = Object.values(this.state.SEARCH);
 
         search.filter(i => +i.Price > 0);
 
-        this.renderMapPoints(search);
+
+
+
+        if(!this.state.isRender){
+            // избегаем перерисовки карты при включении обводки
+            this.renderMapPoints(search);
+        }
 
         return (
             <div className="inner">
@@ -606,6 +598,7 @@ export default class SearchResultList extends Component {
                         <div className="section__inner">
 
                             <div className="row tour-search">
+
                                 <div className={tourSearchMap}>
                                     <div className="tour-search__map__wrap">
                                         <div id="map">
@@ -623,30 +616,18 @@ export default class SearchResultList extends Component {
                                             ></canvas>
                                         </div>
 
-                                        <div style={{zIndex: 101}} className={mapTriggerWpCls}
-                                             onClick={this.mapTrigger}><span className={mapTriggerIcon}></span><span
-                                            className="label">{mapTriggerLabel}</span></div>
-                                        <div
+                                        {!this.state.yandexMapInited ? '' :
+                                            <div style={{zIndex: 101}} className={mapTriggerWpCls}
+                                                 onClick={this.mapTrigger}>
+                                                <span className={mapTriggerIcon}></span>
+                                                <span className="label">{mapTriggerLabel}</span>
+                                            </div>}
+                                        {!this.state.yandexMapInited ? '' : <div
                                             style={{zIndex: 101}}
                                             onClick={this.renderButtonClick}
                                             className="tour-search__map__draw"><span>{renderButtonCaption}</span>
-                                        </div>
+                                        </div>}
 
-                                    </div>
-
-                                    <div className="balloon hoteldetail" data-href="" style={{display: 'none'}}>
-                                        <div className="balloon__header">
-                                            <a href="#" className="balloon__close close">×</a>
-                                            <div className="balloon__header--title">Mantas Sea Side</div>
-                                            <div className="rating -star-3"></div>
-                                        </div>
-                                        <div className="balloon__content">
-                                            <div className="balloon-price">Цена от: 77 081 <span
-                                                className="rub">Р</span></div>
-                                            <div className="balloon-destination">Греция / Лутраки</div>
-
-                                            <div className="icon-icon-location-blue"></div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -654,13 +635,17 @@ export default class SearchResultList extends Component {
 
 
                                     <ul className="list -inline tour-search__results__list scroll-content">
-                                        <Scrollbars style={{height: 600}}>
+                                        <Scrollbars
+                                            ref="scrollbars"
+                                            autoHeight
+                                            autoHeightMin={600}
+                                        >
                                             {this.renderHotels(search)}
                                         </Scrollbars>
                                     </ul>
 
 
-                                    <div className="scroll-bottom">
+                                    <div className="scroll-bottom" onClick={this.onScrollBottonClick}>
                                         <span className="icon-arrow-bottom"></span>
                                     </div>
 

@@ -165,8 +165,6 @@ export let Render = {
             });
 
             this.reactApp.map.entity.geoObjects.add(this.reactApp.map.polygon);
-            //this.reactApp.map.entity.geoObjects.add(this.reactApp.map.polygon);
-
 
             console.log('coordinates: ', this.coordinates);
 
@@ -174,26 +172,6 @@ export let Render = {
                 coordinates: this.coordinates,
                 isRender: false,
             });
-
-
-            // todo - перенести в render - фильтрация SEARCH
-            /*
-            that.setState({
-                SEARCH: _.filter(that.state.SEARCH_RAW, function(item){
-                    if (that.state.HOTELS_INFO && that.state.HOTELS_INFO[item.HOTEL_INFO_ID] && that.state.HOTELS_INFO[item.HOTEL_INFO_ID].PROPS) {
-                        var point = that.state.HOTELS_INFO[item.HOTEL_INFO_ID].PROPS.LL_MAP_POINT.VALUE;
-                        if (point) {
-                            point = point.split(',');
-                            try{
-                                return gMap.polygon.geometry.contains([point[0], point[1]]);
-                            }catch(e){
-                                return true;
-                            }
-                        }
-                    }
-                })
-            });
-            */
 
             this.draw('finish');
         }else if (res == 'move') {
