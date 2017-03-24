@@ -10,8 +10,6 @@ import {Scrollbars} from 'react-custom-scrollbars';
 import {Loader} from './loader';
 import Slider from 'react-slick';
 
-//import {baloonLayout, baloonContentTemplate} from './baloon';
-
 export default class SearchResultList extends Component {
 
     constructor(props) {
@@ -165,17 +163,15 @@ export default class SearchResultList extends Component {
 
         this.map.markers = [];
 
-
         var MyBalloonLayout = ymaps.templateLayoutFactory.createClass(`
-            <div className="balloon hoteldetail" data-href="$[properties.hotelLink]" >
-                <div className="balloon__header">
-                    <a href="#" className="balloon__close close">×</a> 
-                    <div className="balloon__header--title">$[properties.hotelName]</div>
+            <div class="balloon hoteldetail" data-href="$[properties.hotelLink]" >
+                <div class="balloon__header">
+                    <a href="#" class="balloon__close close">×</a> 
+                    <div class="balloon__header--title">$[properties.hotelName]</div> 
                     $[properties.hotelStarHtml]
                 </div>
-                <div className="balloon__content">
-                    $[[options.contentLayout ]]
-                </div> 
+                $[[options.contentLayout ]]
+                 
             </div>`
             , {
 
@@ -288,10 +284,11 @@ export default class SearchResultList extends Component {
             });
 
         var BalloonContentLayout = ymaps.templateLayoutFactory.createClass(`
-                <div className="balloon-price">Цена от:  {{properties.price}} <span className="rub">Р</span></div>
-                <div className="balloon-destination">{{properties.descr}}</div>
-                <div className="icon-icon-location-blue "></div>  `, {});
-
+            <div class="balloon__content">
+                <div class="balloon-price">Цена от:  {{properties.price}} <span class="rub">Р</span></div>
+                <div class="balloon-destination">{{properties.descr}}</div>
+                <div class="icon-icon-location-blue"></div>
+            </div>`, {});
 
         search.map((item) => {
 
@@ -492,10 +489,19 @@ export default class SearchResultList extends Component {
         let priceMin = this.state.filter.priceFrom;
         let priceMax = 0;
 
+        let arDatesPrices = [];
+
+
+        console.log('obSearch: ', obSearch);
+
         for (let key in obSearch) {
             if (obSearch[key].Price < priceMin) priceMin = obSearch[key].Price;
             if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
         }
+
+
+
+
 
 
         // at the end
@@ -594,7 +600,7 @@ export default class SearchResultList extends Component {
                                 <Slider {...sliderSetting}>
                                     {images.map((img, idx) => <div className="carousel__item" key={idx}><img src={img}/></div>)}
                                 </Slider>
-                            : ''}
+                                : ''}
                         </div>
                         <div className="col__middle hotel-card__content">
                             <div className="rating left -star-4"></div>
@@ -622,7 +628,7 @@ export default class SearchResultList extends Component {
                 </li>
             );
         });
-        
+
         return hotels;
     }
 
@@ -795,7 +801,7 @@ export default class SearchResultList extends Component {
                         </div>
                     </div>
                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' :'')}
-                            onClick={() => this.filterBlockToggle('operator')}
+                         onClick={() => this.filterBlockToggle('operator')}
                     >
                         <div className="block-inline__collapse__top">
                             <h5>Туроператор</h5>
