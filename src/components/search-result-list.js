@@ -28,9 +28,6 @@ export default class SearchResultList extends Component {
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
         this.operatorsList = window.RuInturistStore.OPERATORS;
         
-        console.log('this.operatorsList: ', this.operatorsList);
-        console.log('window.RuInturistStore: ', window.RuInturistStore);
-
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
         this.itemsPerPage = 25; // кол-во элементов на стр
@@ -84,6 +81,8 @@ export default class SearchResultList extends Component {
                 sort: 'asc',
                 expandedBlock: null,
                 arRegions: [],
+                arOperators: [],
+                starsFrom: 0,
             },
             arAllRegions: [],
             curDate: this.curDate,
@@ -312,7 +311,7 @@ export default class SearchResultList extends Component {
 
     componentDidUpdate() {
         initSliderRange(this);
-        initSliderStars();
+        initSliderStars(this);
         initWeekFilter();
 
         this.initMap();
@@ -656,6 +655,7 @@ export default class SearchResultList extends Component {
             expandedBlock,
             sort,
             arRegions,
+            arOperators,
         } = filter;
         
         return (
@@ -714,9 +714,9 @@ export default class SearchResultList extends Component {
                             <span className="icon-arrow-up"></span>
                         </div>
                         <div className="block-collapse__bottom">
-                            <div className="block-checkbox">
+                            <div className="block-checkbox" onClick={() => this.setOperator(null)}>
                                 <label className="label-checkbox">
-                                    <input type="checkbox" readOnly/>
+                                    <input type="checkbox" readOnly checked={!arOperators.length}/>
                                     <span className="text">Все туроператоры</span>
                                 </label>
                             </div>
@@ -725,8 +725,11 @@ export default class SearchResultList extends Component {
                                 return (
                                     <div className="block-checkbox grey" key={operId}>
                                         <label className="label-checkbox">
-                                            <input type="checkbox" readOnly/>
-                                            <span className="text">{oper.name}</span>
+                                            <input type="checkbox" readOnly
+                                                   onChange={() => this.setOperator(operId)}
+                                                   checked={-1 !== arOperators.indexOf(operId)}
+                                            />
+                                            <span className="text">{operId} {oper.name}</span>
                                         </label>
                                     </div>
                                 );
@@ -764,9 +767,7 @@ export default class SearchResultList extends Component {
                     </div>
                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' :'')}
                     >
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'stars')}
-                        >
+                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('stars')}>
                             <h5>Количество звезд</h5>
                             <span className="icon-arrow-down"></span>
                             <span className="icon-arrow-up"></span>
@@ -782,8 +783,7 @@ export default class SearchResultList extends Component {
                                     <span className="star-5">5 <i className="icon-star"></i></span>
                                 </div>
                             </div>
-                            <div className="slider-stars" data-min="0" data-max="5" data-step="1"
-                                 data-from="3"></div>
+                            <div className="slider-stars" data-min="0" data-max="5" data-step="1" data-from="0"></div>
                         </div>
                     </div>
                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' :'')}>
@@ -877,6 +877,12 @@ export default class SearchResultList extends Component {
             search = search.filter(i => {
                 const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
                 return hotelInfo && hotelInfo.LOCATION[1] && -1 !== this.state.filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
+            });
+        }
+        
+        if(this.state.filter.arOperators.length){
+            search = search.filter(i => {
+                return _.intersection(i.opers, this.state.filter.arOperators).length;
             });
         }
 
@@ -1300,6 +1306,33 @@ export default class SearchResultList extends Component {
 
         this.setState({
             filter: Object.assign({}, this.state.filter, {arRegions: arRegions})
+        });
+
+    }
+
+    setOperator(operatorId){
+        
+        console.log('setOperator: ', operatorId);
+
+        let arOperators = [];
+
+        if(operatorId){
+
+            arOperators = [...this.state.filter.arOperators];
+            let idx = arOperators.indexOf(operatorId);
+
+            if(-1 === idx){
+                arOperators.push(operatorId);
+            }else{
+                arOperators = [
+                    ...arOperators.slice(0, idx),
+                    ...arOperators.slice(idx + 1, arOperators.length)
+                ]
+            }
+        }
+
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {arOperators: arOperators})
         });
 
     }

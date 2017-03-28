@@ -279,7 +279,7 @@ export function initSliderRange(reactApp = null) {
     }
 
 }
-export function initSliderStars() {
+export function initSliderStars(reactApp = null) {
     try {
         $('.slider-stars').each(function () {
             var _ = $(this);
@@ -296,7 +296,10 @@ export function initSliderStars() {
                 min: min,
                 max: max,
                 value: from,
-                step: step
+                step: step,
+                change: (event, ui) => {
+                    if(!reactApp) return;
+                }
             });
         });
     } catch (e) {
