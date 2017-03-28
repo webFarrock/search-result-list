@@ -19,41 +19,23 @@ export default class SearchResultList extends Component {
         console.log('SearchResultList constructor');
         super(props);
 
-        this.state = {
-            page: 1,
-            arXHR: [],
-            isRender: false,
-            coordinates: [],
-            yandexMapInited: false,
-            SEARCH: {},
-            HOTELS_INFO: {},
-            USER_FAV: [],
-            isMapWide: false,
-            filter: {
-                active: false,
-                priceFrom: 10000,
-                priceMin: 10000,
-                priceTo: 800000,
-                priceMax: 800000,
-                sort: 'asc',
-                expandedBlock: null,
-                arRegions: ["Адлер", "Дагомыс"],
-            },
-            arAllRegions: [],
-            curDate: window.RuInturistStore.initForm.dateFrom,
-            dates: this.getDatesList(),
-        };
+
 
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
         this.LL_API_IN = window.RuInturistStore.LL_API_IN;
-
+        this.curDate = window.RuInturistStore.initForm.dateFrom
         this.ajaxUrl = '/tour-search/ajax.php';
-
-        this.LTMaxChkNum = 3; // максимальное количество запросов к ЛЛ
-        this.LTChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
-        this.itemsPerPage = 25; // кол-во элементов на стр
-
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
+        this.operatorsList = window.RuInturistStore.OPERATORS;
+        
+        console.log('this.operatorsList: ', this.operatorsList);
+        console.log('window.RuInturistStore: ', window.RuInturistStore);
+
+        this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
+        this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
+        this.itemsPerPage = 25; // кол-во элементов на стр
+        this.LLCompletedRequests = {};
+
 
         this.mapZoom = 7;
         this.mapCenter = [55.031284, 44.459611];
@@ -69,10 +51,11 @@ export default class SearchResultList extends Component {
         this.resultsHandler = this.resultsHandler.bind(this);
 
 
-        //console.log('=====================================');
+
+        console.log('=====================================');
         //console.log('NTK_PACk_TYPES: ', this.NTK_PACk_TYPES);
-        //console.log('LL_API_IN: ', this.LL_API_IN);
-        //console.log('=====================================');
+        console.log('LL_API_IN: ', this.LL_API_IN);
+        console.log('=====================================');
 
         this.map = {
             inited: false,
@@ -80,121 +63,918 @@ export default class SearchResultList extends Component {
             entity: null,
         }
 
+
+
+        this.state = {
+            page: 1,
+            arXHR: [],
+            isRender: false,
+            coordinates: [],
+            yandexMapInited: false,
+            SEARCH: {},
+            HOTELS_INFO: {},
+            USER_FAV: [],
+            isMapWide: false,
+            filter: {
+                active: false,
+                priceFrom: 10000,
+                priceMin: 10000,
+                priceTo: 1000000,
+                priceMax: 1000000,
+                sort: 'asc',
+                expandedBlock: null,
+                arRegions: [],
+            },
+            arAllRegions: [],
+            curDate: this.curDate,
+            dates: this.getDatesList(),
+
+            isLoadingLT: !!this.LL_API_IN,
+            chkLTResNum: 0,
+
+            operators: [],
+        };
+
     }
 
+    getLTHotelList() {
 
-    setRegion(region){
+        if (this.LL_API_IN) {
 
-        console.log('click: setRegion: ', region);
+            let xhr = $.ajax({
+                url: '/tour-search/ajax.php',
+                data: {
+                    LL_API_IN: this.LL_API_IN,
+                    ajax: 'Y',
+                    dataType: 'json',
+                    cache: false
+                },
+                beforeSend: () => {
+                    console.log('getLTHotelList beforeSend');
+                },
+            }).done((data) => {
+                
+                console.log('getLTHotelList done: ',data);
+                console.log('getLTHotelList done: ',data);
 
-        let arRegions = [];
+                if (!data) {
+                    console.log('22222');
+                    this.setLLAsFinished();
+                } else {
+                    console.log('33333');
+                    data = JSON.parse(data);
 
-        if(region){
+                    if (data.success) {
+                        this.processLTHotelListResult(data);
+                    } else {
+                        this.setLLAsFinished();
+                    }
+                }
 
-            arRegions = [...this.state.filter.arRegions];
-            let idx = arRegions.indexOf(region);
+            });
 
-            if(-1 === idx){
-                arRegions.push(region);
-            }else{
-                arRegions = [
-                    ...arRegions.slice(0, idx),
-                    ...arRegions.slice(idx + 1, arRegions.length)
-                ]
+            this.arXHRsPush(xhr);
+
+        }
+    }
+
+    processLTHotelListResult(data) {
+
+        let hasPreparingReq = this.hasPreparingRequests(data.status);
+        let hasCompletedReq = this.hasCompletedRequests(data.status);
+
+        if (hasCompletedReq) {
+            this.getLTCompletedRequests(data.request_id, !hasPreparingReq);
+        }
+
+        if (hasPreparingReq) {
+            this.setState({
+                chkLTResNum: this.state.chkLTResNum + 1
+            });
+
+            if (this.state.chkLTResNum < this.LLMaxChkNum) {
+                setTimeout(() => {
+                    this.chkLTResultStatus(data.request_id);
+                }, this.LLChkTimeOut);
             }
         }
 
-        this.setState({
-            filter: Object.assign({}, this.state.filter, {arRegions: arRegions})
-        });
-
-    }
-
-    setSort(e, sort){
-        e.stopPropagation();
-        this.setState({
-            filter: Object.assign({}, this.state.filter, {sort: sort})
-        })
-    }
-    
-    getDatesList(){
-        moment.lang('ru');
-        let dateFrom = window.RuInturistStore.initForm.dateFrom;
-        if(!dateFrom) return {};
-
-        let momentDate = moment(dateFrom, 'DD.MM.YYYY').add(-4, 'day');
-
-        let dates = {};
-
-
-        for(let i = 0; i<=6; i++){
-
-            let date2add = momentDate.add(1, 'day');
-            const dateRaw = date2add.format('DD.MM.YYYY');
-
-            dates[dateRaw] = {
-                ts: +date2add.format('X'),
-                dateRaw: dateRaw,
-                dayOfWeek: date2add.format('dddd'),
-                dayAndMonth: date2add.format('D MMMM'),
-            };
+        if(!hasCompletedReq && !hasPreparingReq){
+            this.setLLAsFinished();
         }
-        
-        
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-        console.log('dates: ', dates);
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
 
-        return dates;
     }
 
-    filterBlockToggle(blockId){
+    chkLTResultStatus(request_id) {
+        if (!this.state.isLoadingLT) return;
+
+
+        var xhr = $.ajax({
+            url: '/local/include/ajax/chk-lt-result.php',
+            data: {
+                request_id: request_id,
+                dataType: 'json',
+                cache: false
+            },
+            beforeSend: () => {},
+        }).done((data) => {
+            data = JSON.parse(data);
+            data.request_id = request_id;
+
+            this.processLTHotelListResult(data);
+        });
+
+        this.arXHRsPush(xhr);
+    }
+
+    hasPreparingRequests(obStatus) {
+        for (var i in obStatus) {
+            if ('pending' == obStatus[i] || 'performing' == obStatus[i]) return true;
+        }
+        return false;
+    }
+
+    hasCompletedRequests(obStatus) {
+
+        let flag = false;
+
+        for (let key in obStatus) {
+
+            if (
+                ('completed' == obStatus[key] || 'cached' == obStatus[key]) && !this.LLCompletedRequests[key]
+            ) {
+                flag = true;
+                this.LLCompletedRequests[key] = true;
+            }
+        }
+
+        return flag;
+    }
+
+    getLTCompletedRequests(request_id, isLastRequest) {
+
+        const _this = this;
+        var xhr = $.ajax({
+            url: '/tour-search/ajax.php',
+            data: {
+                request_id: request_id,
+                lt_action: 'get_resuls',
+                ajax: 'Y',
+                origUrl: document.location.href,
+                dataType: 'json',
+                cache: false,
+            },
+            beforeSend: () => {},
+        }).done((data) => {
+
+            if (data) {
+                data = JSON.parse(data);
+
+                console.log('LL DATA: ', data);
+
+                if(data.SEARCH instanceof Object){
+
+                    const minServices = 'перелет, проживание';
+
+                    for (let key in data.SEARCH) {
+                        let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                        if(!hotelInfo){
+                            delete data.SEARCH[key];
+                            continue;
+                        }
+
+                        data.SEARCH[key].minServices = minServices;
+                        data.SEARCH[key].Price = +data.SEARCH[key].Price
+
+                    }
+
+
+                    let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                    let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
+
+                    this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
+
+
+                }
+
+
+
+                /*
+                for (let key in data.SEARCH) {
+                    let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                    if(!hotelInfo){
+                        delete data.SEARCH[key];
+                        continue;
+                    }
+
+
+                    data.SEARCH[key].minServices = minServices;
+                    data.SEARCH[key].Price = +data.SEARCH[key].Price
+
+
+                }
+                */
+
+            }
+
+
+
+
+            // обработка SEARCH ТУТ
+
+            /*
+             // todo DELETE FULL BLOCK
+
+            let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+
+
+
+
+            if(0)
+            this.setState({
+                SEARCH_RAW: obSearch,
+                SEARCH: obSearch,
+                HOTELS_INFO: Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO),
+
+                USER_FAV: [].concat(data.USER_FAV, this.state.USER_FAV),
+                isLoading: false,
+                chkLTResNum: isLastRequest ? 777 : this.state.chkLTResNum,
+                isLoadingLT: isLastRequest ? false: true,
+            });
+            */
+        });
+
+        this.arXHRsPush(xhr);
+    }
+
+
+
+
+    componentDidUpdate() {
+        initSliderRange(this);
+        initSliderStars();
+        initWeekFilter();
+
+        this.initMap();
+
+        if (this.state.yandexMapInited) {
+            Render.init({
+                reactApp: this,
+                canvas: this.refs.canvas,
+                projection: this.map.entity.options.get('projection'),
+            });
+        }
+
+    }
+
+    getNtkHotelList() {
+
+        if (this.NTK_API_IN.Destination) {
+            this.NTK_PACk_TYPES.forEach((pack) => {
+                const NTK_API_IN = {...this.NTK_API_IN, ...pack};
+
+                let xhr = $.ajax({
+                    url: this.ajaxUrl,
+                    data: {
+                        NTK_API_IN,
+                        ajax: 'Y',
+                    },
+                    dataType: 'json',
+                    cache: false,
+                    beforeSend: () => {
+                        console.log('before send ajax');
+
+                    },
+                }).done(data => {
+
+                    if (data && data.SEARCH instanceof Object) {
+
+                        //console.log('=========================');
+                        //console.log('NTK_API_IN: ', NTK_API_IN);
+                        //console.log('=========================');
+
+                        let minServices = '';
+                        if (+NTK_API_IN['FlightType'] == 1) {
+                            minServices = 'перелет, проживание';
+                        } else if (+NTK_API_IN['FlightType'] == 2) {
+                            minServices = 'проживание';
+                        } else if (0) { // todo - жд перевозки
+                            minServices = '';
+                        }
+
+                        for (let key in data.SEARCH) {
+                            let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                            if(!hotelInfo){
+                                delete data.SEARCH[key];
+                                continue;
+                            }
+
+
+                            data.SEARCH[key].minServices = minServices;
+                            data.SEARCH[key].Price = +data.SEARCH[key].Price
+
+
+                        }
+
+                        let obSearch = {};
+
+                        if (+pack['FlightType'] === 2) { // туры с перелетом перекрывают то что уже получено
+                            obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
+                        } else {
+                            obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                        }
+
+                        let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
+
+                        this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
+
+
+
+                    }
+                });
+
+                this.arXHRsPush(xhr);
+
+            });
+        }
+
+
+    }
+
+    resultsHandler(obSearch, hotelsInfo, userFav) {
+
+        //console.log('handle results');
+        //console.log('obSearch: ', obSearch);
+        //console.log('hotelsInfo: ', hotelsInfo);
+
+        // все дубли по отелям с ценой большей минимальной удаляем
+        let arUsedKeys = [];
+        Object.values(obSearch)
+              .sort((i,j) => i.Price - j.Price)
+              .forEach((i) => {
+                  if(-1 !== arUsedKeys.indexOf(i.bxHotelId)){
+                      delete obSearch[i.HOTEL_INFO_ID];
+                  }
+                  arUsedKeys.push(i.bxHotelId);
+              });
+
+        let priceMin = this.state.filter.priceFrom;
+        let priceMax = 0;
+        let dates = Object.assign({}, this.state.dates);
+        let operators = [...this.state.operators];
+
+
+        for (let key in obSearch) {
+            if (obSearch[key].Price < priceMin) priceMin = obSearch[key].Price;
+            if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
+
+            if(
+                dates[obSearch[key].HotelLoadDate] &&
+                (!dates[obSearch[key].HotelLoadDate].Price || dates[obSearch[key].HotelLoadDate].Price > obSearch[key].Price)
+            ){
+                dates[obSearch[key].HotelLoadDate].Price = obSearch[key].Price;
+            }
+
+
+
+            operators = [...operators, ...obSearch[key].opers];
+        }
+
+        if(Object.keys(dates).length){
+            for (let key in dates){
+
+                let printPrice;
+
+                if (dates[key].Price){
+                    printPrice = (
+                        <div className="tour-week__filter__item__price">от <span>{numberFormat(dates[key].Price, 0, '', ' ')} р</span></div>
+                    )
+                }else{
+                    printPrice = <div className="tour-week__filter__item__price">Нет туров</div>;
+                }
+
+                dates[key].printPrice = printPrice;
+            }
+        }
+
+
+        let arAllRegions = [...this.state.arAllRegions];
+        for (let key in hotelsInfo){
+            if(hotelsInfo[key].LOCATION[1]){
+                arAllRegions.push(hotelsInfo[key].LOCATION[1]);
+            }
+        }
+
+        arAllRegions = _.uniq(arAllRegions);
+        arAllRegions = naturalSort(arAllRegions);
+
+        // at the end
         this.setState({
-            filter: Object.assign({}, this.state.filter, {expandedBlock: blockId})
+            filter: Object.assign({}, this.state.filter, {
+                priceFrom: priceMin,
+                priceMin: priceMin,
+                priceTo: priceMax,
+                priceMax: priceMax,
+            }),
+
+            dates: Object.assign({}, dates),
+            arAllRegions: arAllRegions,
+
+            SEARCH: obSearch,
+            HOTELS_INFO: hotelsInfo,
+            USER_FAV: [].concat(this.state.USER_FAV, userFav),
+
+            operators: _.uniq(operators),
+
         });
 
     }
+
 
     componentDidMount() {
         this.getNtkHotelList();
+
+        this.getLTHotelList();
     }
 
-    filterToggle() {
-        this.setState({
-            filter: Object.assign({}, this.state.filter, {active: !this.state.filter.active})
+    renderHotels(search = []) {
+
+        let sliderSetting = {
+            accessibility: false,
+            dots: false,
+            arrows: true,
+            fade: true,
+            className: 'carousel carousel-in',
+        };
+
+        let hotels = search.map((hotel, idx) => {
+
+            let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
+            const priceForPrint = numberFormat(+hotel.Price, 0, '', ' ',);
+            let images = hotelInfo.IMAGES || [];
+
+
+            return (
+                <li className="list__item"
+                    key={idx}
+                    onMouseEnter={() => this.onHotelMouseEnter(hotel.HOTEL_INFO_ID)}
+                    onMouseLeave={() => this.onHotelMouseLeave(hotel.HOTEL_INFO_ID)}
+                >
+                    <div className="row hotel-card">
+                        <div className="hotel-card__actions">
+                            {hotelInfo.HP ?
+                                <div className="hot-price show-description">
+                                    <span className="icon-hotprice"></span>
+                                    <div className="description">Горячая цена</div>
+                                </div>
+                                : ''}
+                            {hotelInfo.FA ?
+                                <div className="confirmation show-description">
+                                    <span className="icon-statim"></span>
+                                    <div className="description">Моментальное подтверждение</div>
+                                </div>
+                                : ''}
+                        </div>
+
+                        <div className="col__left hotel-card__image">
+                            {images.length ?
+                                <Slider {...sliderSetting}>
+                                    {images.map((img, idx) => <div className="carousel__item" key={idx}><img src={img}/></div>)}
+                                </Slider>
+                                : ''}
+                        </div>
+                        <div className="col__middle hotel-card__content">
+                            <div className="rating left -star-4"></div>
+                            <span className="icon-addfavorite right"></span>
+                            <span className="icon-newsletter right"></span>
+
+                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
+                            <div
+                                className="hotel-card__location">{`${hotel.HOTEL_INFO_ID} - ${hotelInfo.LOCATION.join(', ')}`}</div>
+
+                            {this.renderAttrs(hotelInfo.arPreparedAttrs)}
+
+                            <div className="hotel-card__service">{hotel.minServices}</div>
+
+                            <div className="world-rating"></div>
+
+                            <a href="" className="button buy">
+                                <span className="buy-wrapper">
+                                    <span className="price"><i>от</i> {priceForPrint} <span
+                                        className="rub">Р</span></span>
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </li>
+            );
         });
+
+        return hotels;
     }
 
-    onWeekFilterClick(curDate){
 
-        this.setState({curDate});
 
-        if(this.state.coordinates.length){
-            this.renderButtonClick();
+    renderFilter() {
+
+        if(!Object.keys(this.state.SEARCH).length) return;
+
+        const {filter} = this.state;
+
+        let filterHeaderCls = ' tour-addit__filter__top ';
+        if (filter.active) filterHeaderCls += ' active ';
+
+        return (
+            <div className="tour-filter__wrap tour-filter__wrap__bottom">
+                <div className="row inner">
+                    {this.renderDates()}
+                    <div className="region-right col__left -col-35">
+                        <div className="tour-addit__filter">
+                            <div className={filterHeaderCls} onClick={this.filterToggle}>
+                                {filter.active ?
+                                    <div className="tour-addit__filter__top__inner filter-active">
+                                        <span className="icon-tube"></span>
+                                        <span className="center">
+                                            <span className="text">Выбрано фильтров: 5</span>
+                                            <a className="clear-filters" href="#">Очистить фильтры</a>
+									    </span>
+                                        <span className="icon-arrow-up"></span>
+                                    </div>
+                                    :
+                                    <div className="tour-addit__filter__top__inner filter-default">
+                                        <span className="icon-tube"></span>
+                                        <span className="text">Дополнительные фильтры</span>
+                                        <span className="icon-arrow-down"></span>
+                                    </div>
+                                }
+                            </div>
+                            {this.renderFilterBody()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    renderDates(){
+
+        let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
+
+        if(!arDates.length) return;
+        
+        //console.log('=======================');
+        //console.log('this.state.dates: ', this.state.dates);
+        //console.log('arDates: ', arDates);
+
+
+        return (
+            <div className="region-left col__left -col-60">
+                <div className="tour-week__filter">
+                {arDates.map( (date, idx) => {
+                    return (
+                        <div className="tour-week__filter__item"
+                             onClick={() => this.onWeekFilterClick(date.dateRaw)}
+                             key={idx} >
+                            <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
+                            <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
+                            {date.printPrice}
+                        </div>
+                    )
+                })}
+                </div>
+
+            </div>
+        )
+    }
+
+    renderFilterBody() {
+        const {filter, operators} = this.state
+
+        if (!filter.active) return;
+
+        const {
+            expandedBlock,
+            sort,
+            arRegions,
+        } = filter;
+        
+        return (
+            <div className="tour-addit__filter__dropdown">
+                <div className="tour-addit__filter__dropdown__inner">
+                    <div className="block-inline block-inline__top">
+                        <h5>Диапазон цен</h5>
+                        <div className="tour-filter__range">
+                            <span className="first">
+                                <span className="pre-text">от</span>
+                                <span className="js-sider-range-text-from-1"></span>
+                                <span className="rub">P</span>
+                            </span>
+                            <span className="last">
+                                <span className="pre-text">до</span>
+                                <span className="js-sider-range-text-to-1"></span>
+                                <span className="rub">P</span>
+                            </span>
+                        </div>
+                        <div className="slider-range" data-index="1" data-min={filter.priceMin}
+                             data-max={filter.priceMax}
+                             data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
+                    </div>
+
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' :'')}>
+
+                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('sorting')}>
+                            <h5>Сортировать по: цене</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+
+                        <div className="block-collapse__bottom">
+                            <div className="block-checkbox" onClick={() => this.setSort('asc')}>
+                                <label className="label-checkbox" htmlFor="price-asc">
+                                    <input type="radio"
+                                           readOnly
+                                           checked={sort === 'asc'}/>
+                                    <span className="text">Сортировать от меньшей цены к большей</span>
+                                </label>
+                            </div>
+                            <div className="block-checkbox" onClick={() => this.setSort('desc')}>
+                                <label className="label-checkbox" htmlFor="price-desc">
+                                    <input type="radio"
+                                           readOnly
+                                           checked={sort === 'desc'}/>
+                                    <span className="text">Сортировать от большей цены к меньшей</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' :'')}>
+                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('operator')}>
+                            <h5>Туроператор</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            <div className="block-checkbox">
+                                <label className="label-checkbox">
+                                    <input type="checkbox" readOnly/>
+                                    <span className="text">Все туроператоры</span>
+                                </label>
+                            </div>
+                            {operators.map(operId => {
+                                let oper = this.operatorsList[operId];
+                                return (
+                                    <div className="block-checkbox grey" key={operId}>
+                                        <label className="label-checkbox">
+                                            <input type="checkbox" readOnly/>
+                                            <span className="text">{oper.name}</span>
+                                        </label>
+                                    </div>
+                                );
+                            })}
+
+                        </div>
+                    </div>
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' :'')}>
+                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('regions')}>
+                            <h5>Регионы</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            <div className="block-checkbox" onClick={() => this.setRegion(null)}>
+                                <label className="label-checkbox">
+                                    <input type="checkbox" readOnly checked={!arRegions.length}/>
+                                    <span className="text">Все регионы</span>
+                                </label>
+                            </div>
+                            {this.state.arAllRegions.map((region, idx) => {
+                                return (
+                                    <div className="block-checkbox" key={idx}>
+                                        <label className="label-checkbox">
+                                            <input type="checkbox"
+                                                   readOnly
+                                                   onChange={() => this.setRegion(region)}
+                                                   checked={-1 !== arRegions.indexOf(region)}/>
+                                            <span className="text">{region}</span>
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' :'')}
+                    >
+                        <div className="block-inline__collapse__top"
+                             onClick={(e) => this.filterBlockToggle(e, 'stars')}
+                        >
+                            <h5>Количество звезд</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            <div className="tour-filter__range">
+                                <div className="stars">
+                                    <span className="star-0">0 <i className="icon-star"></i></span>
+                                    <span className="star-1">1 <i className="icon-star"></i></span>
+                                    <span className="star-2">2 <i className="icon-star"></i></span>
+                                    <span className="star-3">3 <i className="icon-star"></i></span>
+                                    <span className="star-4">4 <i className="icon-star"></i></span>
+                                    <span className="star-5">5 <i className="icon-star"></i></span>
+                                </div>
+                            </div>
+                            <div className="slider-stars" data-min="0" data-max="5" data-step="1"
+                                 data-from="3"></div>
+                        </div>
+                    </div>
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' :'')}>
+                        <div className="block-inline__collapse__top"
+                             onClick={(e) => this.filterBlockToggle(e, 'service')}
+                        >
+                            <h5>Удобства</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            Контент
+                        </div>
+                    </div>
+                    <div className="block-inline block-inline__collapse"
+                         onClick={(e) => this.filterBlockToggle(e, 'shore')}
+                    >
+                        <div className="block-inline__collapse__top">
+                            <h5>Расстояние до пляжа</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            Контент
+                        </div>
+                    </div>
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
+                        <div className="block-inline__collapse__top"
+                             onClick={(e) => this.filterBlockToggle(e, 'resttype')}
+                        >
+                            <h5>Тип отдыха</h5>
+                            <span className="icon-arrow-down"></span>
+                            <span className="icon-arrow-up"></span>
+                        </div>
+                        <div className="block-collapse__bottom">
+                            Контент
+                        </div>
+                    </div>
+                </div>
+                <div className="block-inline block-clear-filters">
+                    <a className="clear-filters" href="#">Очистить фильтры</a>
+                </div>
+            </div>
+        );
+    }
+
+
+    render() {
+        
+        console.log('this.state.operators: ',this.state.operators);
+        
+
+        const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
+        const mapTriggerIcon = this.state.isMapWide ? 'icon-arrow-right' : 'icon-arrow-left';
+        const mapTriggerWpCls = this.state.isMapWide ? 'tour-search__map__hide expand' : 'tour-search__map__hide ';
+        const tourSearchMap = this.state.isMapWide ? 'col__right tour-search__map' : 'col__right tour-search__map small';
+        const canvasCls = this.state.isRender ? 'canvas-opened' : 'canvas-closed';
+
+        const {filter} = this.state;
+
+        let renderButtonCaption = 'Обвести';
+
+        if (this.state.isRender) {
+            renderButtonCaption = 'Отменить';
+
+        } else if (this.state.coordinates.length) {
+            renderButtonCaption = 'Очистить';
         }
 
-        const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
-    }
+        const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
 
-    onScrollBottonClick() {
+        let search = Object.values(this.state.SEARCH);
 
-        const {scrollbars} = this.refs;
-        const scrollHeight = scrollbars.getScrollHeight();
-        const cartHeight = 259;
-        const newVal = Math.round(scrollbars.getScrollTop() / cartHeight) * cartHeight + cartHeight;
+        search = search.filter(i => +i.Price > 0);
 
-        if (newVal < scrollHeight) {
-            scrollbars.scrollTop(newVal);
+
+        // фильтро по обводке
+        if (this.state.coordinates.length) {
+            search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
         }
 
+        search = search.filter(i => {
+            return (
+                (i.Price >= filter.priceFrom && i.Price <= filter.priceTo) &&
+                (i.HotelLoadDate === this.state.curDate)
+            )
+        });
+
+        // ФИЛЬТР ПО РЕГИОНАМ
+        if(this.state.filter.arRegions.length){
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+                return hotelInfo && hotelInfo.LOCATION[1] && -1 !== this.state.filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
+            });
+        }
+
+        // отрисовка точек только после всех фильтров
+        if (!this.state.isRender) {
+            this.renderMapPoints(search);
+        }
+
+        search = search.sort((i, j) => {
+            if(this.state.filter.sort == 'asc') return i.Price - j.Price;
+            if(this.state.filter.sort == 'desc') return j.Price - i.Price;
+        });
+
+        return (
+            <div className="inner">
+                {this.renderFilter()}
+                <div className="row">
+                    <div className="col__left -col-60 content-region-left">
+                        <h2>Поиск тура: найдено предложений: {search.length}</h2>
+                    </div>
+                </div>
+                <div className="row">
+                    <section className="col__middle section">
+                        <div className="section__inner">
+
+                            <div className="row tour-search">
+
+                                <div className={tourSearchMap}>
+                                    <div className="tour-search__map__wrap">
+                                        <div id="map">
+                                            <canvas
+                                                id="canvas-on-map"
+                                                onMouseMove={this.onCanvasMouseMove}
+                                                onMouseDown={this.onCanvasMouseDown}
+                                                onMouseUp={this.onCanvasMouseUp}
+                                                onMouseOut={this.onCanvasMouseOut}
+                                                onTouchStart={this.onCanvasTouchStart}
+                                                onTouchMove={this.onCanvasTouchMove}
+                                                onTouchEnd={this.onCanvasTouchEnd}
+                                                className={canvasCls}
+                                                ref="canvas"
+                                            ></canvas>
+                                        </div>
+
+                                        {!this.state.yandexMapInited ? '' :
+                                            <div style={{zIndex: 101}} className={mapTriggerWpCls}
+                                                 onClick={this.mapTrigger}>
+                                                <span className={mapTriggerIcon}></span>
+                                                <span className="label">{mapTriggerLabel}</span>
+                                            </div>}
+                                        {!this.state.yandexMapInited ? '' : <div
+                                            style={{zIndex: 101}}
+                                            onClick={this.renderButtonClick}
+                                            className="tour-search__map__draw"><span>{renderButtonCaption}</span>
+                                        </div>}
+
+                                    </div>
+                                </div>
+
+                                <div className={tourSearchResult}>
+
+
+                                    <ul className="list -inline tour-search__results__list scroll-content">
+                                        <Scrollbars
+                                            ref="scrollbars"
+                                            autoHeight
+                                            autoHeightMin={600}
+                                        >
+                                            {this.renderHotels(search)}
+                                        </Scrollbars>
+                                    </ul>
+
+
+                                    <div className="scroll-bottom" onClick={this.onScrollBottonClick}>
+                                        <span className="icon-arrow-bottom"></span>
+                                    </div>
+
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+        );
     }
+
+
+
+
+
+
 
     initMap() {
 
-        console.log('--->initMap()');
+        //console.log('--->initMap()');
 
         if (!ymaps) return;
 
@@ -202,7 +982,7 @@ export default class SearchResultList extends Component {
 
         try {
 
-            console.log('--->initMap() ->> try');
+            //console.log('--->initMap() ->> try');
 
             this.map.entity = new ymaps.Map("map", {
                 center: this.mapCenter,
@@ -447,24 +1227,6 @@ export default class SearchResultList extends Component {
 
     }
 
-
-    componentDidUpdate() {
-        initSliderRange(this);
-        initSliderStars();
-        initWeekFilter();
-
-        this.initMap();
-
-        if (this.state.yandexMapInited) {
-            Render.init({
-                reactApp: this,
-                canvas: this.refs.canvas,
-                projection: this.map.entity.options.get('projection'),
-            });
-        }
-
-    }
-
     mapTrigger() {
 
         this.setState({isMapWide: !this.state.isMapWide}, () => {
@@ -478,156 +1240,6 @@ export default class SearchResultList extends Component {
                     this.map.entity.setBounds(bounds, {checkZoomRange: true});
                 }
             }
-        });
-
-
-    }
-
-    getNtkHotelList() {
-
-        if (this.NTK_API_IN.Destination) {
-            this.NTK_PACk_TYPES.forEach((pack) => {
-                const NTK_API_IN = {...this.NTK_API_IN, ...pack};
-
-                let xhr = $.ajax({
-                    url: this.ajaxUrl,
-                    data: {
-                        NTK_API_IN,
-                        ajax: 'Y',
-                    },
-                    dataType: 'json',
-                    cache: false,
-                    beforeSend: () => {
-                        console.log('before send ajax');
-
-                    },
-                }).done(data => {
-
-                    if (data && data.SEARCH instanceof Object) {
-
-                        //console.log('=========================');
-                        //console.log('NTK_API_IN: ', NTK_API_IN);
-                        //console.log('=========================');
-
-                        let minServices = '';
-                        if (+NTK_API_IN['FlightType'] == 1) {
-                            minServices = 'перелет, проживание';
-                        } else if (+NTK_API_IN['FlightType'] == 2) {
-                            minServices = 'проживание';
-                        } else if (0) { // todo - жд перевозки
-                            minServices = '';
-                        }
-
-                        for (let key in data.SEARCH) {
-                            let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                            if(!hotelInfo){
-                                delete data.SEARCH[key];
-                                continue;
-                            }
-
-
-                            data.SEARCH[key].minServices = minServices;
-                            data.SEARCH[key].Price = +data.SEARCH[key].Price
-
-
-                        }
-
-                        let obSearch = {};
-
-                        if (+pack['FlightType'] === 2) { // туры с перелетом перекрывают то что уже получено
-                            obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
-                        } else {
-                            obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
-                        }
-
-                        let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
-
-                        this.resultsHandler(obSearch, hotelsInfo);
-
-
-                        this.setState({
-                            SEARCH: obSearch,
-                            HOTELS_INFO: hotelsInfo,
-                            USER_FAV: [].concat(data.USER_FAV, this.state.USER_FAV),
-                            //isLoading: false
-                        });
-                    }
-                });
-
-                this.arXHRs.push(xhr);
-
-                this.setState({
-                    arXHR: [].concat(this.arXHRs)
-                });
-
-            });
-        }
-
-
-    }
-
-    resultsHandler(obSearch, hotelsInfo) {
-
-        console.log('handle results');
-        console.log('obSearch: ', obSearch);
-        console.log('hotelsInfo: ', hotelsInfo);
-
-        let priceMin = this.state.filter.priceFrom;
-        let priceMax = 0;
-        let dates = Object.assign({}, this.state.dates);
-
-
-        for (let key in obSearch) {
-            if (obSearch[key].Price < priceMin) priceMin = obSearch[key].Price;
-            if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
-
-            if(
-                dates[obSearch[key].HotelLoadDate] &&
-                (!dates[obSearch[key].HotelLoadDate].Price || dates[obSearch[key].HotelLoadDate].Price > obSearch[key].Price)
-            ){
-                dates[obSearch[key].HotelLoadDate].Price = obSearch[key].Price;
-            }
-
-        }
-
-        if(Object.keys(dates).length){
-            for (let key in dates){
-
-                let printPrice;
-
-                if (dates[key].Price){
-                    printPrice = (
-                        <div className="tour-week__filter__item__price">от <span>{numberFormat(dates[key].Price, 0, '', ' ')} р</span></div>
-                    )
-                }else{
-                    printPrice = <div className="tour-week__filter__item__price">Нет туров</div>;
-                }
-
-                dates[key].printPrice = printPrice;
-            }
-        }
-
-
-        let arAllRegions = [...this.state.arAllRegions];
-        for (let key in hotelsInfo){
-            if(hotelsInfo[key].LOCATION[1]){
-                arAllRegions.push(hotelsInfo[key].LOCATION[1]);
-            }
-        }
-
-        arAllRegions = _.uniq(arAllRegions);
-        arAllRegions = naturalSort(arAllRegions);
-
-        // at the end
-        this.setState({
-            filter: Object.assign({}, this.state.filter, {
-                priceFrom: priceMin,
-                priceMin: priceMin,
-                priceTo: priceMax,
-                priceMax: priceMax,
-            }),
-            dates: Object.assign({}, dates),
-            arAllRegions: arAllRegions,
         });
 
 
@@ -654,7 +1266,6 @@ export default class SearchResultList extends Component {
 
     }
 
-
     onHotelMouseEnter(hotelId) {
         const marker = this.map.markers[hotelId];
         if (!marker) return;
@@ -668,81 +1279,99 @@ export default class SearchResultList extends Component {
         marker.options.set({iconImageHref: this.mapMarker, zIndex: 999999999});
     }
 
+    setRegion(region){
 
-    renderHotels(search = []) {
+        let arRegions = [];
 
-        let sliderSetting = {
-            accessibility: false,
-            dots: false,
-            arrows: true,
-            fade: true,
-            className: 'carousel carousel-in',
-        };
+        if(region){
 
-        let hotels = search.map((hotel, idx) => {
+            arRegions = [...this.state.filter.arRegions];
+            let idx = arRegions.indexOf(region);
 
-            let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
-            const priceForPrint = numberFormat(+hotel.Price, 0, '', ' ',);
-            let images = hotelInfo.IMAGES || [];
+            if(-1 === idx){
+                arRegions.push(region);
+            }else{
+                arRegions = [
+                    ...arRegions.slice(0, idx),
+                    ...arRegions.slice(idx + 1, arRegions.length)
+                ]
+            }
+        }
 
-
-            return (
-                <li className="list__item"
-                    key={idx}
-                    onMouseEnter={() => this.onHotelMouseEnter(hotel.HOTEL_INFO_ID)}
-                    onMouseLeave={() => this.onHotelMouseLeave(hotel.HOTEL_INFO_ID)}
-                >
-                    <div className="row hotel-card">
-                        <div className="hotel-card__actions">
-                            {hotelInfo.HP ?
-                                <div className="hot-price show-description">
-                                    <span className="icon-hotprice"></span>
-                                    <div className="description">Горячая цена</div>
-                                </div>
-                                : ''}
-                            {hotelInfo.FA ?
-                                <div className="confirmation show-description">
-                                    <span className="icon-statim"></span>
-                                    <div className="description">Моментальное подтверждение</div>
-                                </div>
-                                : ''}
-                        </div>
-
-                        <div className="col__left hotel-card__image">
-                            {images.length ?
-                                <Slider {...sliderSetting}>
-                                    {images.map((img, idx) => <div className="carousel__item" key={idx}><img src={img}/></div>)}
-                                </Slider>
-                                : ''}
-                        </div>
-                        <div className="col__middle hotel-card__content">
-                            <div className="rating left -star-4"></div>
-                            <span className="icon-addfavorite right"></span>
-                            <span className="icon-newsletter right"></span>
-
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
-                            <div
-                                className="hotel-card__location">{`${hotel.HOTEL_INFO_ID} - ${hotelInfo.LOCATION.join(', ')}`}</div>
-
-                            {this.renderAttrs(hotelInfo.arPreparedAttrs)}
-
-                            <div className="hotel-card__service">{hotel.minServices}</div>
-
-                            <div className="world-rating"></div>
-
-                            <a href="" className="button buy">
-                                <span className="buy-wrapper">
-                                    <span className="price"><i>от</i> {priceForPrint} <span
-                                        className="rub">Р</span></span>
-                                </span>
-                            </a>
-                        </div>
-                    </div>
-                </li>
-            );
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {arRegions: arRegions})
         });
 
-        return hotels;
+    }
+
+    setSort(sort){
+        if(this.state.filter.sort == sort) return;
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {sort: sort})
+        })
+    }
+
+    getDatesList(){
+        moment.lang('ru');
+        let dateFrom = window.RuInturistStore.initForm.dateFrom;
+        if(!dateFrom) return {};
+
+        let momentDate = moment(dateFrom, 'DD.MM.YYYY').add(-4, 'day');
+
+        let dates = {};
+
+
+        for(let i = 0; i<=6; i++){
+
+            let date2add = momentDate.add(1, 'day');
+            const dateRaw = date2add.format('DD.MM.YYYY');
+
+            dates[dateRaw] = {
+                ts: +date2add.format('X'),
+                dateRaw: dateRaw,
+                dayOfWeek: date2add.format('dddd'),
+                dayAndMonth: date2add.format('D MMMM'),
+            };
+        }
+        return dates;
+    }
+
+    filterBlockToggle(blockId){
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {expandedBlock: blockId})
+        });
+    }
+
+
+    filterToggle() {
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {active: !this.state.filter.active})
+        });
+    }
+
+    onWeekFilterClick(curDate){
+
+        this.setState({curDate});
+
+        if(this.state.coordinates.length){
+            this.renderButtonClick();
+        }
+
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
+    }
+
+    onScrollBottonClick() {
+
+        const {scrollbars} = this.refs;
+        const scrollHeight = scrollbars.getScrollHeight();
+        const cartHeight = 259;
+        const newVal = Math.round(scrollbars.getScrollTop() / cartHeight) * cartHeight + cartHeight;
+
+        if (newVal < scrollHeight) {
+            scrollbars.scrollTop(newVal);
+        }
+
     }
 
     onCanvasMouseMove(e) {
@@ -773,390 +1402,15 @@ export default class SearchResultList extends Component {
         Render.findxy('up', 'touch', e);
     }
 
+    arXHRsPush(xhr){
+        this.arXHRs.push(xhr);
 
-    renderFilter() {
-
-        const {filter} = this.state;
-
-        let filterHeaderCls = ' tour-addit__filter__top ';
-        if (filter.active) filterHeaderCls += ' active ';
-
-        return (
-            <div className="tour-filter__wrap tour-filter__wrap__bottom">
-                <div className="row inner">
-                    {this.renderDates()}
-                    <div className="region-right col__left -col-35">
-                        <div className="tour-addit__filter">
-                            <div className={filterHeaderCls} onClick={this.filterToggle}>
-                                {filter.active ?
-                                    <div className="tour-addit__filter__top__inner filter-active">
-                                        <span className="icon-tube"></span>
-                                        <span className="center">
-                                            <span className="text">Выбрано фильтров: 5</span>
-                                            <a className="clear-filters" href="#">Очистить фильтры</a>
-									    </span>
-                                        <span className="icon-arrow-up"></span>
-                                    </div>
-                                    :
-                                    <div className="tour-addit__filter__top__inner filter-default">
-                                        <span className="icon-tube"></span>
-                                        <span className="text">Дополнительные фильтры</span>
-                                        <span className="icon-arrow-down"></span>
-                                    </div>
-                                }
-                            </div>
-                            {this.renderFilterBody()}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    renderDates(){
-
-        let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
-
-        if(!arDates.length) return;
-        
-        //console.log('=======================');
-        //console.log('this.state.dates: ', this.state.dates);
-        //console.log('arDates: ', arDates);
-
-
-        return (
-            <div className="region-left col__left -col-60">
-                <div className="tour-week__filter">
-                {arDates.map( (date, idx) => {
-                    return (
-                        <div className="tour-week__filter__item"
-                             onClick={() => this.onWeekFilterClick(date.dateRaw)}
-                             key={idx} >
-                            <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
-                            <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
-                            {date.printPrice}
-                        </div>
-                    )
-                })}
-                </div>
-
-            </div>
-        )
-    }
-
-    renderFilterBody() {
-        const {filter} = this.state
-
-        if (!filter.active) return;
-
-        const {
-            expandedBlock,
-            sort,
-            arRegions,
-        } = filter;
-        
-        return (
-            <div className="tour-addit__filter__dropdown">
-                <div className="tour-addit__filter__dropdown__inner">
-                    <div className="block-inline block-inline__top">
-                        <h5>Диапазон цен</h5>
-                        <div className="tour-filter__range">
-											<span className="first">
-												<span className="pre-text">от</span>
-												<span className="js-sider-range-text-from-1"></span>
-												<span className="rub">P</span>
-											</span>
-                            <span className="last">
-												<span className="pre-text">до</span>
-												<span className="js-sider-range-text-to-1"></span>
-												<span className="rub">P</span>
-											</span>
-                        </div>
-                        <div className="slider-range" data-index="1" data-min={filter.priceMin}
-                             data-max={filter.priceMax}
-                             data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' :'')}
-                         onClick={(e) => this.filterBlockToggle(e, 'sorting')}
-                    >
-                        <div className="block-inline__collapse__top">
-                            <h5>Сортировать по: цене</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={(e) => this.setSort(e, 'asc')}>
-                                <label className="label-checkbox" htmlFor="price-asc">
-                                    <input type="radio"
-                                           readOnly
-                                           checked={sort === 'asc'}/>
-                                    <span className="text">Сортировать от меньшей цены к большей</span>
-                                </label>
-                            </div>
-                            <div className="block-checkbox" onClick={(e) => this.setSort(e, 'desc')}>
-                                <label className="label-checkbox" htmlFor="price-desc">
-                                    <input type="radio"
-                                           readOnly
-                                           checked={sort === 'desc'}/>
-                                    <span className="text">Сортировать от большей цены к меньшей</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' :'')}
-                    >
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'operator')}
-                        >
-                            <h5>Туроператор</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox">
-                                <label className="label-checkbox">
-                                    <input type="checkbox"/>
-                                    <span className="text">Все туроператоры</span>
-                                </label>
-                            </div>
-                            <div className="block-checkbox grey">
-                                <label className="label-checkbox">
-                                    <input type="checkbox"/>
-                                    <span className="text">Только НТК Интурист</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' :'')}
-                    >
-                        <div className="block-inline__collapse__top"
-                             onClick={() => this.filterBlockToggle('regions')}
-                        >
-                            <h5>Регионы</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setRegion(null)}>
-                                <label className="label-checkbox">
-                                    <input type="checkbox" checked={!arRegions.length}/>
-                                    <span className="text">Все регионы</span>
-                                </label>
-                            </div>
-                            {this.state.arAllRegions.map((region, idx) => {
-                                return (
-                                    <div className="block-checkbox" key={idx}>
-                                        <label className="label-checkbox">
-                                            <input type="checkbox"
-                                                   onChange={() => this.setRegion(region)}
-                                                   checked={-1 !== arRegions.indexOf(region)}/>
-                                            <span className="text">{region}</span>
-                                        </label>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' :'')}
-                    >
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'stars')}
-                        >
-                            <h5>Количество звезд</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="tour-filter__range">
-                                <div className="stars">
-                                    <span className="star-0">0 <i className="icon-star"></i></span>
-                                    <span className="star-1">1 <i className="icon-star"></i></span>
-                                    <span className="star-2">2 <i className="icon-star"></i></span>
-                                    <span className="star-3">3 <i className="icon-star"></i></span>
-                                    <span className="star-4">4 <i className="icon-star"></i></span>
-                                    <span className="star-5">5 <i className="icon-star"></i></span>
-                                </div>
-                            </div>
-                            <div className="slider-stars" data-min="0" data-max="5" data-step="1"
-                                 data-from="3"></div>
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' :'')}>
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'service')}
-                        >
-                            <h5>Удобства</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            Контент
-                        </div>
-                    </div>
-                    <div className="block-inline block-inline__collapse"
-                         onClick={(e) => this.filterBlockToggle(e, 'shore')}
-                    >
-                        <div className="block-inline__collapse__top">
-                            <h5>Расстояние до пляжа</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            Контент
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'resttype')}
-                        >
-                            <h5>Тип отдыха</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            Контент
-                        </div>
-                    </div>
-                </div>
-                <div className="block-inline block-clear-filters">
-                    <a className="clear-filters" href="#">Очистить фильтры</a>
-                </div>
-            </div>
-        );
-    }
-
-
-    render() {
-
-        const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
-        const mapTriggerIcon = this.state.isMapWide ? 'icon-arrow-right' : 'icon-arrow-left';
-        const mapTriggerWpCls = this.state.isMapWide ? 'tour-search__map__hide expand' : 'tour-search__map__hide ';
-        const tourSearchMap = this.state.isMapWide ? 'col__right tour-search__map' : 'col__right tour-search__map small';
-        const canvasCls = this.state.isRender ? 'canvas-opened' : 'canvas-closed';
-
-        const {filter} = this.state;
-
-        let renderButtonCaption = 'Обвести';
-
-        if (this.state.isRender) {
-            renderButtonCaption = 'Отменить';
-
-        } else if (this.state.coordinates.length) {
-            renderButtonCaption = 'Очистить';
-        }
-
-        const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
-
-        let search = Object.values(this.state.SEARCH);
-
-        search = search.filter(i => +i.Price > 0);
-
-
-        // фильтро по обводке
-        if (this.state.coordinates.length) {
-            search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
-        }
-
-        search = search.filter(i => {
-            return (
-                (i.Price >= filter.priceFrom && i.Price <= filter.priceTo) &&
-                (i.HotelLoadDate === this.state.curDate)
-            )
+        this.setState({
+            arXHR: [].concat(this.arXHRs)
         });
-
-        // ФИЛЬТР ПО РЕГИОНАМ
-        if(this.state.filter.arRegions.length){
-            search = search.filter(i => {
-                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
-                return hotelInfo && hotelInfo.LOCATION[1] && -1 !== this.state.filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
-            });
-        }
-
-        // отрисовка точек только после всех фильтров
-        if (!this.state.isRender) {
-            this.renderMapPoints(search);
-        }
-
-        search = search.sort((i, j) => {
-            if(this.state.filter.sort == 'asc') return i.Price - j.Price;
-            if(this.state.filter.sort == 'desc') return j.Price - i.Price;
-        });
-
-        return (
-            <div className="inner">
-                {this.renderFilter()}
-                <div className="row">
-                    <div className="col__left -col-60 content-region-left">
-                        <h2>Поиск тура: найдено предложений: {search.length}</h2>
-                    </div>
-                </div>
-                <div className="row">
-                    <section className="col__middle section">
-                        <div className="section__inner">
-
-                            <div className="row tour-search">
-
-                                <div className={tourSearchMap}>
-                                    <div className="tour-search__map__wrap">
-                                        <div id="map">
-                                            <canvas
-                                                id="canvas-on-map"
-                                                onMouseMove={this.onCanvasMouseMove}
-                                                onMouseDown={this.onCanvasMouseDown}
-                                                onMouseUp={this.onCanvasMouseUp}
-                                                onMouseOut={this.onCanvasMouseOut}
-                                                onTouchStart={this.onCanvasTouchStart}
-                                                onTouchMove={this.onCanvasTouchMove}
-                                                onTouchEnd={this.onCanvasTouchEnd}
-                                                className={canvasCls}
-                                                ref="canvas"
-                                            ></canvas>
-                                        </div>
-
-                                        {!this.state.yandexMapInited ? '' :
-                                            <div style={{zIndex: 101}} className={mapTriggerWpCls}
-                                                 onClick={this.mapTrigger}>
-                                                <span className={mapTriggerIcon}></span>
-                                                <span className="label">{mapTriggerLabel}</span>
-                                            </div>}
-                                        {!this.state.yandexMapInited ? '' : <div
-                                            style={{zIndex: 101}}
-                                            onClick={this.renderButtonClick}
-                                            className="tour-search__map__draw"><span>{renderButtonCaption}</span>
-                                        </div>}
-
-                                    </div>
-                                </div>
-
-                                <div className={tourSearchResult}>
-
-
-                                    <ul className="list -inline tour-search__results__list scroll-content">
-                                        <Scrollbars
-                                            ref="scrollbars"
-                                            autoHeight
-                                            autoHeightMin={600}
-                                        >
-                                            {this.renderHotels(search)}
-                                        </Scrollbars>
-                                    </ul>
-
-
-                                    <div className="scroll-bottom" onClick={this.onScrollBottonClick}>
-                                        <span className="icon-arrow-bottom"></span>
-                                    </div>
-
-
-                                </div>
-                            </div>
-
-                        </div>
-                    </section>
-                </div>
-            </div>
-
-        );
     }
 
+    setLLAsFinished(){
+        this.setState({chkLTResNum: 777, isLoadingLT: false});
+    }
 }
