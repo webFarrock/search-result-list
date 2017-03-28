@@ -299,6 +299,15 @@ export function initSliderStars(reactApp = null) {
                 step: step,
                 change: (event, ui) => {
                     if(!reactApp) return;
+
+                    if(ui.value !== reactApp.state.filter.starsFrom){
+                        reactApp.setState({
+                            filter: Object.assign({}, reactApp.state.filter, {
+                                starsFrom: ui.value
+                            }),
+                        });
+                    }
+
                 }
             });
         });

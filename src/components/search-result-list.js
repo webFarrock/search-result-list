@@ -6,7 +6,8 @@ import {
     initWeekFilter,
     initSliderRange,
     initSliderStars,
-    naturalSort
+    naturalSort,
+    deepEqual
 } from '../tools/tools'
 import {Scrollbars} from 'react-custom-scrollbars';
 import {Loader} from './loader';
@@ -26,7 +27,6 @@ export default class SearchResultList extends Component {
         this.curDate = window.RuInturistStore.initForm.dateFrom
         this.ajaxUrl = '/tour-search/ajax.php';
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
-        this.operatorsList = window.RuInturistStore.OPERATORS;
         
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
@@ -49,16 +49,27 @@ export default class SearchResultList extends Component {
 
 
 
-        console.log('=====================================');
+        //console.log('=====================================');
         //console.log('NTK_PACk_TYPES: ', this.NTK_PACk_TYPES);
-        console.log('LL_API_IN: ', this.LL_API_IN);
-        console.log('=====================================');
+        //console.log('LL_API_IN: ', this.LL_API_IN);
+        //console.log('=====================================');
 
         this.map = {
             inited: false,
             polygon: null,
             entity: null,
         }
+
+
+        this.filterStartValue = {
+
+            priceFrom: 10000,
+            priceTo: 1000000,
+            sort: 'asc',
+            arRegions: [],
+            onlyNTKOperator: false,
+            starsFrom: 0,
+        };
 
 
 
@@ -72,26 +83,18 @@ export default class SearchResultList extends Component {
             HOTELS_INFO: {},
             USER_FAV: [],
             isMapWide: false,
-            filter: {
+            filter: Object.assign({
                 active: false,
-                priceFrom: 10000,
-                priceMin: 10000,
-                priceTo: 1000000,
-                priceMax: 1000000,
-                sort: 'asc',
                 expandedBlock: null,
-                arRegions: [],
-                arOperators: [],
-                starsFrom: 0,
-            },
+                priceMin: 10000,
+                priceMax: 1000000,
+            }, this.filterStartValue),
             arAllRegions: [],
             curDate: this.curDate,
             dates: this.getDatesList(),
 
             isLoadingLT: !!this.LL_API_IN,
             chkLTResNum: 0,
-
-            operators: [],
         };
 
     }
@@ -109,18 +112,14 @@ export default class SearchResultList extends Component {
                     cache: false
                 },
                 beforeSend: () => {
-                    console.log('getLTHotelList beforeSend');
+                    //console.log('getLTHotelList beforeSend');
                 },
             }).done((data) => {
-                
-                console.log('getLTHotelList done: ',data);
-                console.log('getLTHotelList done: ',data);
 
                 if (!data) {
-                    console.log('22222');
+
                     this.setLLAsFinished();
                 } else {
-                    console.log('33333');
                     data = JSON.parse(data);
 
                     if (data.success) {
@@ -228,8 +227,6 @@ export default class SearchResultList extends Component {
 
             if (data) {
                 data = JSON.parse(data);
-
-                console.log('LL DATA: ', data);
 
                 if(data.SEARCH instanceof Object){
 
@@ -341,7 +338,8 @@ export default class SearchResultList extends Component {
                     dataType: 'json',
                     cache: false,
                     beforeSend: () => {
-                        console.log('before send ajax');
+                        //console.log('before send ajax');
+                        //console.log('before send ajax');
 
                     },
                 }).done(data => {
@@ -370,7 +368,9 @@ export default class SearchResultList extends Component {
 
 
                             data.SEARCH[key].minServices = minServices;
-                            data.SEARCH[key].Price = +data.SEARCH[key].Price
+                            data.SEARCH[key].Price = +data.SEARCH[key].Price;
+
+                            data.SEARCH[key].ntk = true;
 
 
                         }
@@ -420,7 +420,6 @@ export default class SearchResultList extends Component {
         let priceMin = this.state.filter.priceFrom;
         let priceMax = 0;
         let dates = Object.assign({}, this.state.dates);
-        let operators = [...this.state.operators];
 
 
         for (let key in obSearch) {
@@ -434,9 +433,6 @@ export default class SearchResultList extends Component {
                 dates[obSearch[key].HotelLoadDate].Price = obSearch[key].Price;
             }
 
-
-
-            operators = [...operators, ...obSearch[key].opers];
         }
 
         if(Object.keys(dates).length){
@@ -483,9 +479,11 @@ export default class SearchResultList extends Component {
             HOTELS_INFO: hotelsInfo,
             USER_FAV: [].concat(this.state.USER_FAV, userFav),
 
-            operators: _.uniq(operators),
-
         });
+
+
+        this.filterStartValue.priceFrom = priceMin;
+        this.filterStartValue.priceTo = priceMax;
 
     }
 
@@ -573,6 +571,40 @@ export default class SearchResultList extends Component {
     }
 
 
+    onClickFilterClear(e){
+        e.preventDefault();
+
+        this.setState({
+            filter: Object.assign(this.state.filter, this.filterStartValue),
+        });
+
+    }
+
+    getFiltersNum(){
+        let num = 0;
+        let isPriceConsidered = false;
+        for( let key in this.filterStartValue){
+
+            if(key == 'priceFrom' || key == 'priceTo'){
+                if(!isPriceConsidered && (this.filterStartValue[key] != this.state.filter[key])){
+                    num++;
+                }
+                isPriceConsidered = true;
+            }else if(key == 'arRegions'){
+                if (this.state.filter.arRegions.length){
+                    num++;
+                }
+            }else{
+                if(this.filterStartValue[key] != this.state.filter[key]){
+                    num++;
+                }
+            }
+
+        }
+
+        return num;
+    }
+
 
     renderFilter() {
 
@@ -582,6 +614,8 @@ export default class SearchResultList extends Component {
 
         let filterHeaderCls = ' tour-addit__filter__top ';
         if (filter.active) filterHeaderCls += ' active ';
+
+        let filtersNum = this.getFiltersNum();
 
         return (
             <div className="tour-filter__wrap tour-filter__wrap__bottom">
@@ -594,8 +628,10 @@ export default class SearchResultList extends Component {
                                     <div className="tour-addit__filter__top__inner filter-active">
                                         <span className="icon-tube"></span>
                                         <span className="center">
-                                            <span className="text">Выбрано фильтров: 5</span>
-                                            <a className="clear-filters" href="#">Очистить фильтры</a>
+                                            <span className="text">Выбрано фильтров: {filtersNum}</span>
+                                            {filtersNum ?
+                                                <a className="clear-filters"  onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
+                                            : ''}
 									    </span>
                                         <span className="icon-arrow-up"></span>
                                     </div>
@@ -647,7 +683,7 @@ export default class SearchResultList extends Component {
     }
 
     renderFilterBody() {
-        const {filter, operators} = this.state
+        const {filter} = this.state
 
         if (!filter.active) return;
 
@@ -655,9 +691,12 @@ export default class SearchResultList extends Component {
             expandedBlock,
             sort,
             arRegions,
-            arOperators,
+            onlyNTKOperator,
+            starsFrom,
         } = filter;
-        
+
+        let filtersNum = this.getFiltersNum();
+
         return (
             <div className="tour-addit__filter__dropdown">
                 <div className="tour-addit__filter__dropdown__inner">
@@ -714,26 +753,21 @@ export default class SearchResultList extends Component {
                             <span className="icon-arrow-up"></span>
                         </div>
                         <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setOperator(null)}>
+                            <div className="block-checkbox" onClick={() => this.setOperator(false)}>
                                 <label className="label-checkbox">
-                                    <input type="checkbox" readOnly checked={!arOperators.length}/>
+                                    <input type="checkbox" readOnly checked={!onlyNTKOperator}/>
                                     <span className="text">Все туроператоры</span>
                                 </label>
                             </div>
-                            {operators.map(operId => {
-                                let oper = this.operatorsList[operId];
-                                return (
-                                    <div className="block-checkbox grey" key={operId}>
-                                        <label className="label-checkbox">
-                                            <input type="checkbox" readOnly
-                                                   onChange={() => this.setOperator(operId)}
-                                                   checked={-1 !== arOperators.indexOf(operId)}
-                                            />
-                                            <span className="text">{operId} {oper.name}</span>
-                                        </label>
-                                    </div>
-                                );
-                            })}
+                            <div className="block-checkbox grey">
+                                <label className="label-checkbox">
+                                    <input type="checkbox" readOnly
+                                           onChange={() => this.setOperator(true)}
+                                           checked={onlyNTKOperator}
+                                    />
+                                    <span className="text">Только НТК Интурист</span>
+                                </label>
+                            </div>
 
                         </div>
                     </div>
@@ -783,9 +817,10 @@ export default class SearchResultList extends Component {
                                     <span className="star-5">5 <i className="icon-star"></i></span>
                                 </div>
                             </div>
-                            <div className="slider-stars" data-min="0" data-max="5" data-step="1" data-from="0"></div>
+                            <div className="slider-stars" data-min="0" data-max="5" data-step="1" data-from={starsFrom}></div>
                         </div>
                     </div>
+
                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' :'')}>
                         <div className="block-inline__collapse__top"
                              onClick={(e) => this.filterBlockToggle(e, 'service')}
@@ -798,9 +833,9 @@ export default class SearchResultList extends Component {
                             Контент
                         </div>
                     </div>
-                    <div className="block-inline block-inline__collapse"
-                         onClick={(e) => this.filterBlockToggle(e, 'shore')}
-                    >
+
+                    {/*
+                    <div className="block-inline block-inline__collapse" onClick={(e) => this.filterBlockToggle(e, 'shore')}>
                         <div className="block-inline__collapse__top">
                             <h5>Расстояние до пляжа</h5>
                             <span className="icon-arrow-down"></span>
@@ -811,9 +846,7 @@ export default class SearchResultList extends Component {
                         </div>
                     </div>
                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'resttype')}
-                        >
+                        <div className="block-inline__collapse__top" onClick={(e) => this.filterBlockToggle(e, 'resttype')}>
                             <h5>Тип отдыха</h5>
                             <span className="icon-arrow-down"></span>
                             <span className="icon-arrow-up"></span>
@@ -822,19 +855,27 @@ export default class SearchResultList extends Component {
                             Контент
                         </div>
                     </div>
+                    */}
+
+
                 </div>
-                <div className="block-inline block-clear-filters">
-                    <a className="clear-filters" href="#">Очистить фильтры</a>
-                </div>
+                {filtersNum ?
+                    <div className="block-inline block-clear-filters">
+                        <a className="clear-filters" onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
+                    </div>
+                : ''}
             </div>
         );
     }
 
 
     render() {
-        
-        console.log('this.state.operators: ',this.state.operators);
-        
+
+        console.log('====================================');
+        console.log('====================================');
+        console.log('====================================');
+
+        console.time("Pre render ");
 
         const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
         const mapTriggerIcon = this.state.isMapWide ? 'icon-arrow-right' : 'icon-arrow-left';
@@ -857,20 +898,26 @@ export default class SearchResultList extends Component {
 
         let search = Object.values(this.state.SEARCH);
 
-        search = search.filter(i => +i.Price > 0);
 
+        //console.time("remove me time");
+        //search = search.filter(i => +i.Price > 0);
+        //console.timeEnd("remove me time");
 
         // фильтро по обводке
         if (this.state.coordinates.length) {
+            console.time("фильтро по обводке time");
             search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
+            console.timeEnd("фильтро по обводке time");
         }
 
+        console.time("price filter time");
         search = search.filter(i => {
             return (
                 (i.Price >= filter.priceFrom && i.Price <= filter.priceTo) &&
                 (i.HotelLoadDate === this.state.curDate)
             )
         });
+        console.timeEnd("price filter time");
 
         // ФИЛЬТР ПО РЕГИОНАМ
         if(this.state.filter.arRegions.length){
@@ -880,21 +927,40 @@ export default class SearchResultList extends Component {
             });
         }
         
-        if(this.state.filter.arOperators.length){
+        if(this.state.filter.onlyNTKOperator){
             search = search.filter(i => {
-                return _.intersection(i.opers, this.state.filter.arOperators).length;
+                return i.ntk;
             });
         }
 
-        // отрисовка точек только после всех фильтров
-        if (!this.state.isRender) {
-            this.renderMapPoints(search);
-        }
 
+        console.time("stars filter time");
+        if(this.state.filter.starsFrom > 0){
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+                return hotelInfo && hotelInfo.STARS_INT && hotelInfo.STARS_INT >= this.state.filter.starsFrom;
+            });
+        }
+        console.timeEnd("stars filter time");
+
+
+        console.time("sort by price");
         search = search.sort((i, j) => {
             if(this.state.filter.sort == 'asc') return i.Price - j.Price;
             if(this.state.filter.sort == 'desc') return j.Price - i.Price;
         });
+        console.timeEnd("sort by price");
+
+        // отрисовка точек только после всех фильтров
+        if (!this.state.isRender) {
+            console.time("renderMapPoints time");
+            this.renderMapPoints(search);
+            console.timeEnd("renderMapPoints time");
+        }
+
+
+
+        console.timeEnd("Pre render ");
 
         return (
             <div className="inner">
@@ -1273,6 +1339,9 @@ export default class SearchResultList extends Component {
     }
 
     onHotelMouseEnter(hotelId) {
+
+        if(!this.map.markers) return;
+
         const marker = this.map.markers[hotelId];
         if (!marker) return;
         marker.options.set({iconImageHref: this.mapMarkerHover, zIndex: 9999999999});
@@ -1280,6 +1349,8 @@ export default class SearchResultList extends Component {
     }
 
     onHotelMouseLeave(hotelId) {
+        if(!this.map.markers) return;
+
         const marker = this.map.markers[hotelId];
         if (!marker) return;
         marker.options.set({iconImageHref: this.mapMarker, zIndex: 999999999});
@@ -1310,31 +1381,10 @@ export default class SearchResultList extends Component {
 
     }
 
-    setOperator(operatorId){
-        
-        console.log('setOperator: ', operatorId);
-
-        let arOperators = [];
-
-        if(operatorId){
-
-            arOperators = [...this.state.filter.arOperators];
-            let idx = arOperators.indexOf(operatorId);
-
-            if(-1 === idx){
-                arOperators.push(operatorId);
-            }else{
-                arOperators = [
-                    ...arOperators.slice(0, idx),
-                    ...arOperators.slice(idx + 1, arOperators.length)
-                ]
-            }
-        }
-
+    setOperator(onlyNTKOperator){
         this.setState({
-            filter: Object.assign({}, this.state.filter, {arOperators: arOperators})
+            filter: Object.assign({}, this.state.filter, {onlyNTKOperator: onlyNTKOperator})
         });
-
     }
 
     setSort(sort){
