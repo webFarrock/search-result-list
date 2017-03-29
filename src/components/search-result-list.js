@@ -21,13 +21,13 @@ export default class SearchResultList extends Component {
         super(props);
 
 
-
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
         this.LL_API_IN = window.RuInturistStore.LL_API_IN;
         this.curDate = window.RuInturistStore.initForm.dateFrom
         this.ajaxUrl = '/tour-search/ajax.php';
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
-        
+        this.USER_FAV = window.RuInturistStore.USER_FAV || [];
+
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
         this.itemsPerPage = 25; // кол-во элементов на стр
@@ -48,7 +48,6 @@ export default class SearchResultList extends Component {
         this.resultsHandler = this.resultsHandler.bind(this);
 
 
-
         //console.log('=====================================');
         //console.log('NTK_PACk_TYPES: ', this.NTK_PACk_TYPES);
         //console.log('LL_API_IN: ', this.LL_API_IN);
@@ -60,6 +59,18 @@ export default class SearchResultList extends Component {
             entity: null,
         }
 
+        this.services = [
+            {name: 'Бассейн', className: 'icon-hotel-datailed-option-1'},
+            {name: 'Бесплатный Wi-Fi', className: 'icon-hotel-datailed-option-4'},
+            {name: 'Паркинг', className: 'icon-hotel-datailed-option-2'},
+            {name: 'Спортзал', className: 'icon-hotel-datailed-option-5'},
+            {name: 'Пляж', className: 'icon-hotel-datailed-option-9'},
+            {name: 'Кондиционер', className: 'icon-hotel-datailed-option-6'},
+            {name: 'Питомцы', className: 'icon-hotel-datailed-option-7'},
+            {name: 'Медпункт', className: 'icon-hotel-datailed-option-8'},
+
+        ]
+
 
         this.filterStartValue = {
 
@@ -69,8 +80,8 @@ export default class SearchResultList extends Component {
             arRegions: [],
             onlyNTKOperator: false,
             starsFrom: 0,
+            arServices: [],
         };
-
 
 
         this.state = {
@@ -81,7 +92,7 @@ export default class SearchResultList extends Component {
             yandexMapInited: false,
             SEARCH: {},
             HOTELS_INFO: {},
-            USER_FAV: [],
+            USER_FAV: [...this.USER_FAV, 45316],
             isMapWide: false,
             filter: Object.assign({
                 active: false,
@@ -97,6 +108,27 @@ export default class SearchResultList extends Component {
             chkLTResNum: 0,
         };
 
+    }
+
+    addToFav(hotelId, link){
+
+        const idx = this.state.USER_FAV.indexOf(hotelId)
+        let newUserFav =[...this.state.USER_FAV];
+
+        if(-1 !== idx){
+            newUserFav = [
+                ...newUserFav.slice(0, idx),
+                ...newUserFav.slice(idx + 1, newUserFav.length)
+            ];
+        }else{
+            newUserFav.push(hotelId);
+        }
+        this.setState({USER_FAV: newUserFav});
+
+        /*
+        $.get("/local/ajax/fav.php?ID=" + hotelId + "&link=" + encodeURIComponent(tourList), function (res) {
+
+        });*/
     }
 
     getLTHotelList() {
@@ -157,7 +189,7 @@ export default class SearchResultList extends Component {
             }
         }
 
-        if(!hasCompletedReq && !hasPreparingReq){
+        if (!hasCompletedReq && !hasPreparingReq) {
             this.setLLAsFinished();
         }
 
@@ -174,7 +206,8 @@ export default class SearchResultList extends Component {
                 dataType: 'json',
                 cache: false
             },
-            beforeSend: () => {},
+            beforeSend: () => {
+            },
         }).done((data) => {
             data = JSON.parse(data);
             data.request_id = request_id;
@@ -222,19 +255,20 @@ export default class SearchResultList extends Component {
                 dataType: 'json',
                 cache: false,
             },
-            beforeSend: () => {},
+            beforeSend: () => {
+            },
         }).done((data) => {
 
             if (data) {
                 data = JSON.parse(data);
 
-                if(data.SEARCH instanceof Object){
+                if (data.SEARCH instanceof Object) {
 
                     const minServices = 'перелет, проживание';
 
                     for (let key in data.SEARCH) {
                         let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                        if(!hotelInfo){
+                        if (!hotelInfo) {
                             delete data.SEARCH[key];
                             continue;
                         }
@@ -248,62 +282,35 @@ export default class SearchResultList extends Component {
                     let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
                     let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
-                    this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
+                    this.resultsHandler(obSearch, hotelsInfo);
 
 
                 }
-
 
 
                 /*
-                for (let key in data.SEARCH) {
-                    let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                    if(!hotelInfo){
-                        delete data.SEARCH[key];
-                        continue;
-                    }
+                 for (let key in data.SEARCH) {
+                 let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                 if(!hotelInfo){
+                 delete data.SEARCH[key];
+                 continue;
+                 }
 
 
-                    data.SEARCH[key].minServices = minServices;
-                    data.SEARCH[key].Price = +data.SEARCH[key].Price
+                 data.SEARCH[key].minServices = minServices;
+                 data.SEARCH[key].Price = +data.SEARCH[key].Price
 
 
-                }
-                */
+                 }
+                 */
 
             }
 
 
-
-
-            // обработка SEARCH ТУТ
-
-            /*
-             // todo DELETE FULL BLOCK
-
-            let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
-
-
-
-
-            if(0)
-            this.setState({
-                SEARCH_RAW: obSearch,
-                SEARCH: obSearch,
-                HOTELS_INFO: Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO),
-
-                USER_FAV: [].concat(data.USER_FAV, this.state.USER_FAV),
-                isLoading: false,
-                chkLTResNum: isLastRequest ? 777 : this.state.chkLTResNum,
-                isLoadingLT: isLastRequest ? false: true,
-            });
-            */
         });
 
         this.arXHRsPush(xhr);
     }
-
-
 
 
     componentDidUpdate() {
@@ -334,6 +341,7 @@ export default class SearchResultList extends Component {
                     data: {
                         NTK_API_IN,
                         ajax: 'Y',
+                        origUrl: document.location.href
                     },
                     dataType: 'json',
                     cache: false,
@@ -361,7 +369,7 @@ export default class SearchResultList extends Component {
 
                         for (let key in data.SEARCH) {
                             let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                            if(!hotelInfo){
+                            if (!hotelInfo) {
                                 delete data.SEARCH[key];
                                 continue;
                             }
@@ -385,8 +393,7 @@ export default class SearchResultList extends Component {
 
                         let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
-                        this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
-
+                        this.resultsHandler(obSearch, hotelsInfo);
 
 
                     }
@@ -409,42 +416,43 @@ export default class SearchResultList extends Component {
         // все дубли по отелям с ценой большей минимальной удаляем
         let arUsedKeys = [];
         Object.values(obSearch)
-              .sort((i,j) => i.Price - j.Price)
-              .forEach((i) => {
-                  if(-1 !== arUsedKeys.indexOf(i.bxHotelId)){
-                      delete obSearch[i.HOTEL_INFO_ID];
-                  }
-                  arUsedKeys.push(i.bxHotelId);
-              });
+            .sort((i, j) => i.Price - j.Price)
+            .forEach((i) => {
+                if (-1 !== arUsedKeys.indexOf(i.bxHotelId)) {
+                    delete obSearch[i.HOTEL_INFO_ID];
+                }
+                arUsedKeys.push(i.bxHotelId);
+            });
 
         let priceMin = this.state.filter.priceFrom;
         let priceMax = 0;
         let dates = Object.assign({}, this.state.dates);
-
-
+        
         for (let key in obSearch) {
             if (obSearch[key].Price < priceMin) priceMin = obSearch[key].Price;
             if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
 
-            if(
+            if (
                 dates[obSearch[key].HotelLoadDate] &&
                 (!dates[obSearch[key].HotelLoadDate].Price || dates[obSearch[key].HotelLoadDate].Price > obSearch[key].Price)
-            ){
+            ) {
                 dates[obSearch[key].HotelLoadDate].Price = obSearch[key].Price;
             }
 
         }
+        
 
-        if(Object.keys(dates).length){
-            for (let key in dates){
+        if (Object.keys(dates).length) {
+            for (let key in dates) {
 
                 let printPrice;
 
-                if (dates[key].Price){
+                if (dates[key].Price) {
                     printPrice = (
-                        <div className="tour-week__filter__item__price">от <span>{numberFormat(dates[key].Price, 0, '', ' ')} р</span></div>
+                        <div className="tour-week__filter__item__price">от
+                            <span>{numberFormat(dates[key].Price, 0, '', ' ')} р</span></div>
                     )
-                }else{
+                } else {
                     printPrice = <div className="tour-week__filter__item__price">Нет туров</div>;
                 }
 
@@ -454,8 +462,8 @@ export default class SearchResultList extends Component {
 
 
         let arAllRegions = [...this.state.arAllRegions];
-        for (let key in hotelsInfo){
-            if(hotelsInfo[key].LOCATION[1]){
+        for (let key in hotelsInfo) {
+            if (hotelsInfo[key].LOCATION[1]) {
                 arAllRegions.push(hotelsInfo[key].LOCATION[1]);
             }
         }
@@ -477,7 +485,6 @@ export default class SearchResultList extends Component {
 
             SEARCH: obSearch,
             HOTELS_INFO: hotelsInfo,
-            USER_FAV: [].concat(this.state.USER_FAV, userFav),
 
         });
 
@@ -509,8 +516,9 @@ export default class SearchResultList extends Component {
             let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
             const priceForPrint = numberFormat(+hotel.Price, 0, '', ' ',);
             let images = hotelInfo.IMAGES || [];
-
-
+            
+            const isInFav = this.state.USER_FAV.indexOf(hotel.bxHotelId) !== -1;
+            
             return (
                 <li className="list__item"
                     key={idx}
@@ -536,26 +544,29 @@ export default class SearchResultList extends Component {
                         <div className="col__left hotel-card__image">
                             {images.length ?
                                 <Slider {...sliderSetting}>
-                                    {images.map((img, idx) => <div className="carousel__item" key={idx}><img src={img}/></div>)}
+                                    {images.map((img, idx) => <div className="carousel__item" key={idx}><img src={img}/>
+                                    </div>)}
                                 </Slider>
                                 : ''}
                         </div>
                         <div className="col__middle hotel-card__content">
                             <div className="rating left -star-4"></div>
-                            <span className="icon-addfavorite right"></span>
+                            <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
+                                    onClick={() => this.addToFav(hotel.bxHotelId)}
+                            ></span>
                             <span className="icon-newsletter right"></span>
 
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
+                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotel.bxHotelId} {hotelInfo.NAME}</h5>
                             <div
-                                className="hotel-card__location">{`${hotel.HOTEL_INFO_ID} - ${hotelInfo.LOCATION.join(', ')}`}</div>
+                                className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
 
                             {this.renderAttrs(hotelInfo.arPreparedAttrs)}
 
                             <div className="hotel-card__service">{hotel.minServices}</div>
 
-                            <div className="world-rating"></div>
+                            {/*<div className="world-rating"></div>*/}
 
-                            <a href="" className="button buy">
+                            <a href={hotelInfo.DETAIL_LINK} className="button buy">
                                 <span className="buy-wrapper">
                                     <span className="price"><i>от</i> {priceForPrint} <span
                                         className="rub">Р</span></span>
@@ -571,7 +582,7 @@ export default class SearchResultList extends Component {
     }
 
 
-    onClickFilterClear(e){
+    onClickFilterClear(e) {
         e.preventDefault();
 
         this.setState({
@@ -580,22 +591,22 @@ export default class SearchResultList extends Component {
 
     }
 
-    getFiltersNum(){
+    getFiltersNum() {
         let num = 0;
         let isPriceConsidered = false;
-        for( let key in this.filterStartValue){
+        for (let key in this.filterStartValue) {
 
-            if(key == 'priceFrom' || key == 'priceTo'){
-                if(!isPriceConsidered && (this.filterStartValue[key] != this.state.filter[key])){
+            if (key == 'priceFrom' || key == 'priceTo') {
+                if (!isPriceConsidered && (this.filterStartValue[key] != this.state.filter[key])) {
                     num++;
                 }
                 isPriceConsidered = true;
-            }else if(key == 'arRegions'){
-                if (this.state.filter.arRegions.length){
+            } else if (key == 'arRegions' || key == 'arServices') {
+                if (this.state.filter[key].length) {
                     num++;
                 }
-            }else{
-                if(this.filterStartValue[key] != this.state.filter[key]){
+            } else {
+                if (this.filterStartValue[key] != this.state.filter[key]) {
                     num++;
                 }
             }
@@ -608,7 +619,7 @@ export default class SearchResultList extends Component {
 
     renderFilter() {
 
-        if(!Object.keys(this.state.SEARCH).length) return;
+        if (!Object.keys(this.state.SEARCH).length) return;
 
         const {filter} = this.state;
 
@@ -630,8 +641,9 @@ export default class SearchResultList extends Component {
                                         <span className="center">
                                             <span className="text">Выбрано фильтров: {filtersNum}</span>
                                             {filtersNum ?
-                                                <a className="clear-filters"  onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
-                                            : ''}
+                                                <a className="clear-filters"
+                                                   onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
+                                                : ''}
 									    </span>
                                         <span className="icon-arrow-up"></span>
                                     </div>
@@ -651,12 +663,12 @@ export default class SearchResultList extends Component {
         );
     }
 
-    renderDates(){
+    renderDates() {
 
         let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
 
-        if(!arDates.length) return;
-        
+        if (!arDates.length) return;
+
         //console.log('=======================');
         //console.log('this.state.dates: ', this.state.dates);
         //console.log('arDates: ', arDates);
@@ -665,17 +677,17 @@ export default class SearchResultList extends Component {
         return (
             <div className="region-left col__left -col-60">
                 <div className="tour-week__filter">
-                {arDates.map( (date, idx) => {
-                    return (
-                        <div className="tour-week__filter__item"
-                             onClick={() => this.onWeekFilterClick(date.dateRaw)}
-                             key={idx} >
-                            <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
-                            <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
-                            {date.printPrice}
-                        </div>
-                    )
-                })}
+                    {arDates.map((date, idx) => {
+                        return (
+                            <div className="tour-week__filter__item"
+                                 onClick={() => this.onWeekFilterClick(date.dateRaw)}
+                                 key={idx}>
+                                <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
+                                <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
+                                {date.printPrice}
+                            </div>
+                        )
+                    })}
                 </div>
 
             </div>
@@ -693,6 +705,7 @@ export default class SearchResultList extends Component {
             arRegions,
             onlyNTKOperator,
             starsFrom,
+            arServices,
         } = filter;
 
         let filtersNum = this.getFiltersNum();
@@ -719,7 +732,8 @@ export default class SearchResultList extends Component {
                              data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
                     </div>
 
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' :'')}>
+                    <div
+                        className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' : '')}>
 
                         <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('sorting')}>
                             <h5>Сортировать по: цене</h5>
@@ -746,7 +760,8 @@ export default class SearchResultList extends Component {
                             </div>
                         </div>
                     </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' :'')}>
+                    <div
+                        className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' : '')}>
                         <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('operator')}>
                             <h5>Туроператор</h5>
                             <span className="icon-arrow-down"></span>
@@ -771,7 +786,8 @@ export default class SearchResultList extends Component {
 
                         </div>
                     </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' :'')}>
+                    <div
+                        className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' : '')}>
                         <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('regions')}>
                             <h5>Регионы</h5>
                             <span className="icon-arrow-down"></span>
@@ -799,8 +815,8 @@ export default class SearchResultList extends Component {
                             })}
                         </div>
                     </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' :'')}
-                    >
+                    <div
+                        className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' : '')}>
                         <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('stars')}>
                             <h5>Количество звезд</h5>
                             <span className="icon-arrow-down"></span>
@@ -817,45 +833,60 @@ export default class SearchResultList extends Component {
                                     <span className="star-5">5 <i className="icon-star"></i></span>
                                 </div>
                             </div>
-                            <div className="slider-stars" data-min="0" data-max="5" data-step="1" data-from={starsFrom}></div>
+                            <div className="slider-stars" data-min="0" data-max="5" data-step="1"
+                                 data-from={starsFrom}></div>
                         </div>
                     </div>
 
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' :'')}>
-                        <div className="block-inline__collapse__top"
-                             onClick={(e) => this.filterBlockToggle(e, 'service')}
-                        >
+                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' : '')}>
+                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('service')}>
                             <h5>Удобства</h5>
                             <span className="icon-arrow-down"></span>
                             <span className="icon-arrow-up"></span>
                         </div>
                         <div className="block-collapse__bottom">
-                            Контент
+                            <div className="block-collapse__bottom-recreation">
+                                {this.services.map((i, idx) => {
+                                    return (
+                                        <div
+                                            className={"option" + (arServices.indexOf(i.className) !== -1 ? ' active ' : '')}
+                                            key={i.className}
+                                            onClick={(e) => {
+                                                e.target.classList.toggle('active');
+                                                this.setService(i.className);
+                                            }}>
+                                            <div className="option-text">{i.name}</div>
+                                            <span className={i.className}></span>
+                                        </div>
+                                    );
+                                })}
+
+                            </div>
                         </div>
                     </div>
 
                     {/*
-                    <div className="block-inline block-inline__collapse" onClick={(e) => this.filterBlockToggle(e, 'shore')}>
-                        <div className="block-inline__collapse__top">
-                            <h5>Расстояние до пляжа</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            Контент
-                        </div>
-                    </div>
-                    <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
-                        <div className="block-inline__collapse__top" onClick={(e) => this.filterBlockToggle(e, 'resttype')}>
-                            <h5>Тип отдыха</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            Контент
-                        </div>
-                    </div>
-                    */}
+                     <div className="block-inline block-inline__collapse" onClick={(e) => this.filterBlockToggle(e, 'shore')}>
+                     <div className="block-inline__collapse__top">
+                     <h5>Расстояние до пляжа</h5>
+                     <span className="icon-arrow-down"></span>
+                     <span className="icon-arrow-up"></span>
+                     </div>
+                     <div className="block-collapse__bottom">
+                     Контент
+                     </div>
+                     </div>
+                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
+                     <div className="block-inline__collapse__top" onClick={(e) => this.filterBlockToggle(e, 'resttype')}>
+                     <h5>Тип отдыха</h5>
+                     <span className="icon-arrow-down"></span>
+                     <span className="icon-arrow-up"></span>
+                     </div>
+                     <div className="block-collapse__bottom">
+                     Контент
+                     </div>
+                     </div>
+                     */}
 
 
                 </div>
@@ -863,7 +894,7 @@ export default class SearchResultList extends Component {
                     <div className="block-inline block-clear-filters">
                         <a className="clear-filters" onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
                     </div>
-                : ''}
+                    : ''}
             </div>
         );
     }
@@ -910,24 +941,27 @@ export default class SearchResultList extends Component {
             console.timeEnd("фильтро по обводке time");
         }
 
+        console.time("curDate filter time");
+        search = search.filter(i => (i.HotelLoadDate === this.state.curDate));
+
+        // stay here
+        let arSearchHotelIdsAfterTimeFilter = [...search].map(i => i.bxHotelId);
+        console.timeEnd("curDate filter time");
+
         console.time("price filter time");
-        search = search.filter(i => {
-            return (
-                (i.Price >= filter.priceFrom && i.Price <= filter.priceTo) &&
-                (i.HotelLoadDate === this.state.curDate)
-            )
-        });
+        search = search.filter(i => (i.Price >= filter.priceFrom && i.Price <= filter.priceTo));
         console.timeEnd("price filter time");
 
+
         // ФИЛЬТР ПО РЕГИОНАМ
-        if(this.state.filter.arRegions.length){
+        if (this.state.filter.arRegions.length) {
             search = search.filter(i => {
                 const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
                 return hotelInfo && hotelInfo.LOCATION[1] && -1 !== this.state.filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
             });
         }
-        
-        if(this.state.filter.onlyNTKOperator){
+
+        if (this.state.filter.onlyNTKOperator) {
             search = search.filter(i => {
                 return i.ntk;
             });
@@ -935,7 +969,7 @@ export default class SearchResultList extends Component {
 
 
         console.time("stars filter time");
-        if(this.state.filter.starsFrom > 0){
+        if (this.state.filter.starsFrom > 0) {
             search = search.filter(i => {
                 const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
                 return hotelInfo && hotelInfo.STARS_INT && hotelInfo.STARS_INT >= this.state.filter.starsFrom;
@@ -943,22 +977,46 @@ export default class SearchResultList extends Component {
         }
         console.timeEnd("stars filter time");
 
+        console.time('services filter time');
+        if (this.state.filter.arServices.length) {
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+
+                if (hotelInfo && hotelInfo.arPreparedAttrs) {
+                    const hotelAttrs = Object.keys(hotelInfo.arPreparedAttrs);
+                    return this.state.filter.arServices.every((i) => -1 !== hotelAttrs.indexOf(i));
+                }
+
+                return false;
+            });
+        }
+        console.timeEnd('services filter time');
+
 
         console.time("sort by price");
         search = search.sort((i, j) => {
-            if(this.state.filter.sort == 'asc') return i.Price - j.Price;
-            if(this.state.filter.sort == 'desc') return j.Price - i.Price;
+            if (this.state.filter.sort == 'asc') return i.Price - j.Price;
+            if (this.state.filter.sort == 'desc') return j.Price - i.Price;
         });
         console.timeEnd("sort by price");
 
         // отрисовка точек только после всех фильтров
         if (!this.state.isRender) {
+
+            console.time('calc searchHotelIds');
+            let searchHotelIds = search.map(i => i.bxHotelId);
+            console.timeEnd('calc searchHotelIds');
+
+            console.time('calc diff');
+            let diff = _.difference(arSearchHotelIdsAfterTimeFilter, searchHotelIds);
+            console.timeEnd('calc diff');
+
             console.time("renderMapPoints time");
-            this.renderMapPoints(search);
+            if (diff.length) {
+                //this.renderMapPoints(search);
+            }
             console.timeEnd("renderMapPoints time");
         }
-
-
 
         console.timeEnd("Pre render ");
 
@@ -1039,11 +1097,6 @@ export default class SearchResultList extends Component {
     }
 
 
-
-
-
-
-
     initMap() {
 
         //console.log('--->initMap()');
@@ -1094,7 +1147,7 @@ export default class SearchResultList extends Component {
         if (!this.state.yandexMapInited) return;
 
         if (this.map.collection) {
-            this.map.collection.removeAll();
+            //this.map.collection.removeAll();
         } else {
             this.map.collection = new ymaps.GeoObjectCollection();
         }
@@ -1330,7 +1383,7 @@ export default class SearchResultList extends Component {
         }
 
         if (output.length) {
-            output = output.slice(0, 5);
+            //output = output.slice(0, 5);
             return (
                 <div className="hotel-option">{output}</div>
             );
@@ -1340,7 +1393,7 @@ export default class SearchResultList extends Component {
 
     onHotelMouseEnter(hotelId) {
 
-        if(!this.map.markers) return;
+        if (!this.map.markers) return;
 
         const marker = this.map.markers[hotelId];
         if (!marker) return;
@@ -1349,25 +1402,25 @@ export default class SearchResultList extends Component {
     }
 
     onHotelMouseLeave(hotelId) {
-        if(!this.map.markers) return;
+        if (!this.map.markers) return;
 
         const marker = this.map.markers[hotelId];
         if (!marker) return;
         marker.options.set({iconImageHref: this.mapMarker, zIndex: 999999999});
     }
 
-    setRegion(region){
+    setRegion(region) {
 
         let arRegions = [];
 
-        if(region){
+        if (region) {
 
             arRegions = [...this.state.filter.arRegions];
             let idx = arRegions.indexOf(region);
 
-            if(-1 === idx){
+            if (-1 === idx) {
                 arRegions.push(region);
-            }else{
+            } else {
                 arRegions = [
                     ...arRegions.slice(0, idx),
                     ...arRegions.slice(idx + 1, arRegions.length)
@@ -1381,30 +1434,55 @@ export default class SearchResultList extends Component {
 
     }
 
-    setOperator(onlyNTKOperator){
+    setService(service) {
+
+        let arServices = [];
+
+        if (service) {
+
+            arServices = [...this.state.filter.arServices];
+            let idx = arServices.indexOf(service);
+
+            if (-1 === idx) {
+                arServices.push(service);
+            } else {
+                arServices = [
+                    ...arServices.slice(0, idx),
+                    ...arServices.slice(idx + 1, arServices.length)
+                ]
+            }
+        }
+
+        this.setState({
+            filter: Object.assign({}, this.state.filter, {arServices: arServices})
+        });
+
+    }
+
+    setOperator(onlyNTKOperator) {
         this.setState({
             filter: Object.assign({}, this.state.filter, {onlyNTKOperator: onlyNTKOperator})
         });
     }
 
-    setSort(sort){
-        if(this.state.filter.sort == sort) return;
+    setSort(sort) {
+        if (this.state.filter.sort == sort) return;
         this.setState({
             filter: Object.assign({}, this.state.filter, {sort: sort})
         })
     }
 
-    getDatesList(){
+    getDatesList() {
         moment.lang('ru');
         let dateFrom = window.RuInturistStore.initForm.dateFrom;
-        if(!dateFrom) return {};
+        if (!dateFrom) return {};
 
         let momentDate = moment(dateFrom, 'DD.MM.YYYY').add(-4, 'day');
 
         let dates = {};
 
 
-        for(let i = 0; i<=6; i++){
+        for (let i = 0; i <= 6; i++) {
 
             let date2add = momentDate.add(1, 'day');
             const dateRaw = date2add.format('DD.MM.YYYY');
@@ -1419,7 +1497,7 @@ export default class SearchResultList extends Component {
         return dates;
     }
 
-    filterBlockToggle(blockId){
+    filterBlockToggle(blockId) {
         this.setState({
             filter: Object.assign({}, this.state.filter, {expandedBlock: blockId})
         });
@@ -1432,11 +1510,11 @@ export default class SearchResultList extends Component {
         });
     }
 
-    onWeekFilterClick(curDate){
+    onWeekFilterClick(curDate) {
 
         this.setState({curDate});
 
-        if(this.state.coordinates.length){
+        if (this.state.coordinates.length) {
             this.renderButtonClick();
         }
 
@@ -1485,7 +1563,7 @@ export default class SearchResultList extends Component {
         Render.findxy('up', 'touch', e);
     }
 
-    arXHRsPush(xhr){
+    arXHRsPush(xhr) {
         this.arXHRs.push(xhr);
 
         this.setState({
@@ -1493,7 +1571,7 @@ export default class SearchResultList extends Component {
         });
     }
 
-    setLLAsFinished(){
+    setLLAsFinished() {
         this.setState({chkLTResNum: 777, isLoadingLT: false});
     }
 }
