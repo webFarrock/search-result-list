@@ -27,6 +27,7 @@ export default class SearchResultList extends Component {
         this.ajaxUrl = '/tour-search/ajax.php';
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
         this.USER_FAV = window.RuInturistStore.USER_FAV || [];
+        this.USER_FAV = this.USER_FAV.map(i => +i);
 
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
@@ -57,6 +58,8 @@ export default class SearchResultList extends Component {
             inited: false,
             polygon: null,
             entity: null,
+            markers2add: [],
+            markers:{},
         }
 
         this.services = [
@@ -92,7 +95,7 @@ export default class SearchResultList extends Component {
             yandexMapInited: false,
             SEARCH: {},
             HOTELS_INFO: {},
-            USER_FAV: [...this.USER_FAV, 45316],
+            USER_FAV: [...this.USER_FAV],
             isMapWide: false,
             filter: Object.assign({
                 active: false,
@@ -106,6 +109,7 @@ export default class SearchResultList extends Component {
 
             isLoadingLT: !!this.LL_API_IN,
             chkLTResNum: 0,
+            arXHRs: [],
         };
 
     }
@@ -125,10 +129,8 @@ export default class SearchResultList extends Component {
         }
         this.setState({USER_FAV: newUserFav});
 
-        /*
-        $.get("/local/ajax/fav.php?ID=" + hotelId + "&link=" + encodeURIComponent(tourList), function (res) {
 
-        });*/
+        $.get("/local/ajax/fav.php?ID=" + hotelId + "&link=" + encodeURIComponent(link), function (res) {});
     }
 
     getLTHotelList() {
@@ -552,11 +554,13 @@ export default class SearchResultList extends Component {
                         <div className="col__middle hotel-card__content">
                             <div className="rating left -star-4"></div>
                             <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
-                                    onClick={() => this.addToFav(hotel.bxHotelId)}
+                                    onClick={() => this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
                             ></span>
-                            <span className="icon-newsletter right"></span>
+                            <span className="icon-newsletter right"
+                                  onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
+                            ></span>
 
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotel.bxHotelId} {hotelInfo.NAME}</h5>
+                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
                             <div
                                 className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
 
@@ -929,6 +933,11 @@ export default class SearchResultList extends Component {
 
         let search = Object.values(this.state.SEARCH);
 
+        
+        console.log('this.state.arXHRs: ', this.state.arXHRs);
+        console.log('this.arXHRs: ', this.arXHRs);
+
+        
 
         //console.time("remove me time");
         //search = search.filter(i => +i.Price > 0);
@@ -1003,6 +1012,7 @@ export default class SearchResultList extends Component {
         // отрисовка точек только после всех фильтров
         if (!this.state.isRender) {
 
+            /*
             console.time('calc searchHotelIds');
             let searchHotelIds = search.map(i => i.bxHotelId);
             console.timeEnd('calc searchHotelIds');
@@ -1013,9 +1023,12 @@ export default class SearchResultList extends Component {
 
             console.time("renderMapPoints time");
             if (diff.length) {
-                //this.renderMapPoints(search);
+                */
+                this.renderMapPoints(search);
+                /*
             }
             console.timeEnd("renderMapPoints time");
+            */
         }
 
         console.timeEnd("Pre render ");
@@ -1025,7 +1038,7 @@ export default class SearchResultList extends Component {
                 {this.renderFilter()}
                 <div className="row">
                     <div className="col__left -col-60 content-region-left">
-                        <h2>Поиск тура: найдено предложений: {search.length}</h2>
+                        <h2>Поиск тура: найдено предложений: {search.length} {this.isAllXHRCompleted() ? ' ' : ' [крутилка] '}</h2>
                     </div>
                 </div>
                 <div className="row">
@@ -1144,16 +1157,8 @@ export default class SearchResultList extends Component {
 
     renderMapPoints(search) {
 
+        if (!this.isAllXHRCompleted()) return;
         if (!this.state.yandexMapInited) return;
-
-        if (this.map.collection) {
-            //this.map.collection.removeAll();
-        } else {
-            this.map.collection = new ymaps.GeoObjectCollection();
-        }
-
-
-        this.map.markers = [];
 
         var MyBalloonLayout = ymaps.templateLayoutFactory.createClass(`
             <div class="balloon hoteldetail" data-href="$[properties.hotelLink]" >
@@ -1282,6 +1287,14 @@ export default class SearchResultList extends Component {
                 <div class="icon-icon-location-blue"></div>
             </div>`, {});
 
+
+
+        // пройти
+        // пройти
+
+
+        this.map.markers2add = [];
+
         search.map((item) => {
 
             if (!(this.state.HOTELS_INFO && this.state.HOTELS_INFO[item.HOTEL_INFO_ID] && this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS)) {
@@ -1297,6 +1310,7 @@ export default class SearchResultList extends Component {
             }
 
 
+            /*
             let price = numberFormat(item.Price, 0, ',', ' ');
 
             let stars = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS;
@@ -1310,7 +1324,12 @@ export default class SearchResultList extends Component {
             } else {
                 starsHtml = <div class="rating_litera"> {stars} </div>
             }
+            */
 
+
+            this.map.markers2add.push(item.HOTEL_INFO_ID);
+
+/*
 
             this.map.markers[item.HOTEL_INFO_ID] = new ymaps.Placemark([point[0], point[1]], {
                 price: price,
@@ -1338,17 +1357,96 @@ export default class SearchResultList extends Component {
                 .add('mouseleave', (e) => {
                     e.get('target').options.set('iconImageHref', this.mapMarker);
                 });
+
+                */
+
+
         });
 
-        this.map.entity.geoObjects.add(this.map.collection);
 
 
-        const bounds = this.map.entity.geoObjects.getBounds();
+        let merkersKeys = Object.keys(this.map.markers);
 
-        if (bounds) {
-            this.map.entity.setBounds(bounds, {checkZoomRange: true});
+        let diff = _.difference(merkersKeys, this.map.markers2add);
+
+
+        if(this.map.markers2add.length !== merkersKeys.length  || !this.map.markers2add.every(i => this.map.markers[i])){
+
+            if (this.map.collection) {
+                this.map.collection.removeAll();
+            } else {
+                this.map.collection = new ymaps.GeoObjectCollection();
+            }
+
+            this.map.markers = {}; 
+
+            search.map((item) => {
+
+                if (!(this.state.HOTELS_INFO && this.state.HOTELS_INFO[item.HOTEL_INFO_ID] && this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS)) {
+                    return;
+                }
+
+                let point = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].COORDS;
+
+                point = point.split(',');
+
+                if (this.state.coordinates.length && (this.map.polygon && !this.map.polygon.geometry.contains([point[0], point[1]]))) {
+                    return;
+                }
+
+                let price = numberFormat(item.Price, 0, ',', ' ');
+
+                let stars = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS;
+                let starsInt = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS_INT;
+                let starsHtml = '';
+
+                if (starsInt > 0) {
+                    starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
+                } else if (starsInt == 0) {
+                    starsHtml = '';
+                } else {
+                    starsHtml = <div class="rating_litera"> {stars} </div>
+                }
+
+
+                this.map.markers[item.HOTEL_INFO_ID] = new ymaps.Placemark([point[0], point[1]], {
+                    price: price,
+                    descr: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].LOCATION.join(', '),
+                    hotelName: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].NAME,
+                    hotelStarHtml: starsHtml,
+                    hotelLink: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].DETAIL_LINK,
+                }, {
+                    balloonContentLayout: BalloonContentLayout,
+                    balloonLayout: MyBalloonLayout,
+                    balloonPanelMaxMapArea: 0,
+                    iconLayout: 'default#image',
+                    iconImageHref: '/local/tpl/dist/static/i/icon-map.png',
+                    iconImageSize: [32, 47],
+                    iconImageOffset: [-12, -42]
+                });
+
+
+                this.map.collection.add(this.map.markers[item.HOTEL_INFO_ID]);
+
+                this.map.markers[item.HOTEL_INFO_ID].events
+                    .add('mouseenter', (e) => {
+                        e.get('target').options.set('iconImageHref', this.mapMarkerHover);
+                    })
+                    .add('mouseleave', (e) => {
+                        e.get('target').options.set('iconImageHref', this.mapMarker);
+                    });
+
+            });
+
+            this.map.entity.geoObjects.add(this.map.collection);
+
+            const bounds = this.map.entity.geoObjects.getBounds();
+
+            if (bounds) {
+                this.map.entity.setBounds(bounds, {checkZoomRange: true});
+            }
+
         }
-
 
     }
 
@@ -1565,10 +1663,15 @@ export default class SearchResultList extends Component {
 
     arXHRsPush(xhr) {
         this.arXHRs.push(xhr);
-
+        /*
         this.setState({
-            arXHR: [].concat(this.arXHRs)
+            arXHR: [...this.arXHRs]
         });
+        */
+    }
+
+    isAllXHRCompleted(){
+        return this.arXHRs.every(i => i.readyState === 4)
     }
 
     setLLAsFinished() {
