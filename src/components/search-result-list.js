@@ -10,9 +10,11 @@ import {
     deepEqual
 } from '../tools/tools'
 import {Scrollbars} from 'react-custom-scrollbars';
-import {Loader} from './loader';
+//import {Loader} from './loader';
+import LoaderMini from './loader-mini';
 import Slider from 'react-slick';
 import moment from 'moment';
+
 
 export default class SearchResultList extends Component {
 
@@ -290,22 +292,6 @@ export default class SearchResultList extends Component {
                 }
 
 
-                /*
-                 for (let key in data.SEARCH) {
-                 let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                 if(!hotelInfo){
-                 delete data.SEARCH[key];
-                 continue;
-                 }
-
-
-                 data.SEARCH[key].minServices = minServices;
-                 data.SEARCH[key].Price = +data.SEARCH[key].Price
-
-
-                 }
-                 */
-
             }
 
 
@@ -499,7 +485,6 @@ export default class SearchResultList extends Component {
 
     componentDidMount() {
         this.getNtkHotelList();
-
         this.getLTHotelList();
     }
 
@@ -567,8 +552,6 @@ export default class SearchResultList extends Component {
                             {this.renderAttrs(hotelInfo.arPreparedAttrs)}
 
                             <div className="hotel-card__service">{hotel.minServices}</div>
-
-                            {/*<div className="world-rating"></div>*/}
 
                             <a href={hotelInfo.DETAIL_LINK} className="button buy">
                                 <span className="buy-wrapper">
@@ -869,29 +852,6 @@ export default class SearchResultList extends Component {
                         </div>
                     </div>
 
-                    {/*
-                     <div className="block-inline block-inline__collapse" onClick={(e) => this.filterBlockToggle(e, 'shore')}>
-                     <div className="block-inline__collapse__top">
-                     <h5>Расстояние до пляжа</h5>
-                     <span className="icon-arrow-down"></span>
-                     <span className="icon-arrow-up"></span>
-                     </div>
-                     <div className="block-collapse__bottom">
-                     Контент
-                     </div>
-                     </div>
-                     <div className={"block-inline block-inline__collapse" + (expandedBlock == 'resttype' ? ' expanded ' :'')}>
-                     <div className="block-inline__collapse__top" onClick={(e) => this.filterBlockToggle(e, 'resttype')}>
-                     <h5>Тип отдыха</h5>
-                     <span className="icon-arrow-down"></span>
-                     <span className="icon-arrow-up"></span>
-                     </div>
-                     <div className="block-collapse__bottom">
-                     Контент
-                     </div>
-                     </div>
-                     */}
-
 
                 </div>
                 {filtersNum ?
@@ -905,10 +865,6 @@ export default class SearchResultList extends Component {
 
 
     render() {
-
-        console.log('====================================');
-        console.log('====================================');
-        console.log('====================================');
 
         console.time("Pre render ");
 
@@ -937,11 +893,6 @@ export default class SearchResultList extends Component {
         console.log('this.state.arXHRs: ', this.state.arXHRs);
         console.log('this.arXHRs: ', this.arXHRs);
 
-        
-
-        //console.time("remove me time");
-        //search = search.filter(i => +i.Price > 0);
-        //console.timeEnd("remove me time");
 
         // фильтро по обводке
         if (this.state.coordinates.length) {
@@ -953,8 +904,6 @@ export default class SearchResultList extends Component {
         console.time("curDate filter time");
         search = search.filter(i => (i.HotelLoadDate === this.state.curDate));
 
-        // stay here
-        let arSearchHotelIdsAfterTimeFilter = [...search].map(i => i.bxHotelId);
         console.timeEnd("curDate filter time");
 
         console.time("price filter time");
@@ -1011,24 +960,7 @@ export default class SearchResultList extends Component {
 
         // отрисовка точек только после всех фильтров
         if (!this.state.isRender) {
-
-            /*
-            console.time('calc searchHotelIds');
-            let searchHotelIds = search.map(i => i.bxHotelId);
-            console.timeEnd('calc searchHotelIds');
-
-            console.time('calc diff');
-            let diff = _.difference(arSearchHotelIdsAfterTimeFilter, searchHotelIds);
-            console.timeEnd('calc diff');
-
-            console.time("renderMapPoints time");
-            if (diff.length) {
-                */
-                this.renderMapPoints(search);
-                /*
-            }
-            console.timeEnd("renderMapPoints time");
-            */
+            this.renderMapPoints(search);
         }
 
         console.timeEnd("Pre render ");
@@ -1038,8 +970,12 @@ export default class SearchResultList extends Component {
                 {this.renderFilter()}
                 <div className="row">
                     <div className="col__left -col-60 content-region-left">
-                        <h2>Поиск тура: найдено предложений: {search.length} {this.isAllXHRCompleted() ? ' ' : ' [крутилка] '}</h2>
+                        <h2>Поиск тура: найдено предложений: {search.length} {this.isAllXHRCompleted() ? ' ' : <LoaderMini />}</h2>
+
                     </div>
+
+
+
                 </div>
                 <div className="row">
                     <section className="col__middle section">
@@ -1065,13 +1001,13 @@ export default class SearchResultList extends Component {
                                         </div>
 
                                         {!this.state.yandexMapInited ? '' :
-                                            <div style={{zIndex: 101}} className={mapTriggerWpCls}
+                                            <div  className={mapTriggerWpCls}
                                                  onClick={this.mapTrigger}>
                                                 <span className={mapTriggerIcon}></span>
                                                 <span className="label">{mapTriggerLabel}</span>
                                             </div>}
                                         {!this.state.yandexMapInited ? '' : <div
-                                            style={{zIndex: 101}}
+
                                             onClick={this.renderButtonClick}
                                             className="tour-search__map__draw"><span>{renderButtonCaption}</span>
                                         </div>}
