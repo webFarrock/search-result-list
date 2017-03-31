@@ -112,9 +112,11 @@ export default class SearchResultList extends Component {
             curDate: this.curDate,
             dates: this.getDatesList(),
 
-            isLoadingLT: !!this.LL_API_IN,
             chkLTResNum: 0,
             arXHRs: [],
+            isSearchWasStarted: false,
+            isLLCompleted: !!this.LL_API_IN,
+            isNtkCompleted: Object.keys(this.NTK_PACk_TYPES).length * -1,
         };
 
     }
@@ -142,6 +144,7 @@ export default class SearchResultList extends Component {
     getLTHotelList() {
 
         if (this.LL_API_IN) {
+            this.setState({isSearchWasStarted: true});
 
             let xhr = $.ajax({
                 url: '/tour-search/ajax.php',
@@ -201,8 +204,7 @@ export default class SearchResultList extends Component {
     }
 
     chkLTResultStatus(request_id) {
-        if (!this.state.isLoadingLT) return;
-
+        if (!this.state.isLLCompleted) return;
 
         var xhr = $.ajax({
             url: '/local/include/ajax/chk-lt-result.php',
@@ -289,7 +291,7 @@ export default class SearchResultList extends Component {
                     let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
                     let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
-                    this.resultsHandler(obSearch, hotelsInfo);
+                    this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
 
                 }
 
@@ -321,6 +323,10 @@ export default class SearchResultList extends Component {
     getNtkHotelList() {
 
         if (this.NTK_API_IN.Destination) {
+
+
+
+            this.setState({isSearchWasStarted: true});
             this.NTK_PACk_TYPES.forEach((pack) => {
                 const NTK_API_IN = {...this.NTK_API_IN, ...pack};
 
@@ -376,8 +382,7 @@ export default class SearchResultList extends Component {
 
                         let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
-                        this.resultsHandler(obSearch, hotelsInfo);
-
+                        this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV, true);
 
                     }
                 });
@@ -390,11 +395,7 @@ export default class SearchResultList extends Component {
 
     }
 
-    resultsHandler(obSearch, hotelsInfo, userFav) {
-
-        //console.log('handle results');
-        //console.log('obSearch: ', obSearch);
-        //console.log('hotelsInfo: ', hotelsInfo);
+    resultsHandler(obSearch, hotelsInfo, userFav, isNtk) {
 
         // все дубли по отелям с ценой большей минимальной удаляем
         let arUsedKeys = [];
@@ -461,11 +462,15 @@ export default class SearchResultList extends Component {
             }
         }
 
-        console.log('arAllBoards: ',  arAllBoards);
         arAllBoards = _.uniq(arAllBoards);
         arAllBoards = naturalSort(arAllBoards);
 
         // at the end
+
+
+        let isNtkCompleted = this.state.isNtkCompleted;
+        if(isNtk)isNtkCompleted++;
+
         this.setState({
 
             filter: Object.assign({}, this.state.filter, {
@@ -481,6 +486,7 @@ export default class SearchResultList extends Component {
 
             SEARCH: obSearch,
             HOTELS_INFO: hotelsInfo,
+            isNtkCompleted: isNtkCompleted
 
         });
 
@@ -580,7 +586,17 @@ export default class SearchResultList extends Component {
             );
         });
 
-        return hotels;
+        return (
+            <ul className="list -inline tour-search__results__list scroll-content">
+                <Scrollbars
+                    ref="scrollbars"
+                    autoHeight
+                    autoHeightMin={600}
+                >
+                    {hotels}
+                </Scrollbars>
+            </ul>
+        )
     }
 
 
@@ -926,6 +942,7 @@ export default class SearchResultList extends Component {
             );
         }
 
+
         console.time("Pre render ");
 
         const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
@@ -1030,12 +1047,19 @@ export default class SearchResultList extends Component {
 
         console.timeEnd("Pre render ");
 
+        const searchLength = Object.keys(this.state.SEARCH).length;
+
         return (
             <div className="inner">
                 {this.renderFilter()}
                 <div className="row">
                     <div className="col__left -col-60 content-region-left">
-                        <h2>Поиск тура: найдено предложений: {search.length} {this.isAllXHRCompleted() ? ' ' : <LoaderMini />}</h2>
+                        <h2>
+                            {searchLength ? `Поиск тура: найдено предложений ${searchLength}` : ''}
+                            {searchLength && !this.isAllXHRCompleted() && (!this.state.isLLCompleted || !this.state.isNtkCompleted) ?
+                                <LoaderMini />
+                                : '' }
+                        </h2>
                     </div>
                 </div>
                 <div className="row">
@@ -1077,18 +1101,8 @@ export default class SearchResultList extends Component {
 
                                 <div className={tourSearchResult}>
 
-                                    {search.length ?
-                                        <ul className="list -inline tour-search__results__list scroll-content">
-                                            <Scrollbars
-                                                ref="scrollbars"
-                                                autoHeight
-                                                autoHeightMin={600}
-                                            >
-                                                {this.renderHotels(search)}
-                                            </Scrollbars>
-                                        </ul>
-                                    : <Loader />}
 
+                                    {this.renderSearchArea(search)}
 
                                     <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
                                         <span className="icon-arrow-bottom"></span>
@@ -1107,8 +1121,19 @@ export default class SearchResultList extends Component {
     }
 
 
+    renderSearchArea(search){
+
+        const searchLength = Object.keys(this.state.SEARCH).length;
+
+        if(searchLength) return this.renderHotels(search);
+        if(!searchLength && !this.isAllXHRCompleted()) return <Loader/>;
+        if(!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return  <h2>Ничего не найдено</h2>;
+    }
+
+
     initMap() {
 
+        //console.log('--->initMap()');
         //console.log('--->initMap()');
 
         if (!ymaps) return;
@@ -1695,6 +1720,6 @@ export default class SearchResultList extends Component {
     }
 
     setLLAsFinished() {
-        this.setState({chkLTResNum: 777, isLoadingLT: false});
+        this.setState({chkLTResNum: 777, isLLCompleted: false});
     }
 }
