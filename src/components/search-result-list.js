@@ -498,7 +498,7 @@ export default class SearchResultList extends Component {
 
         if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country){
             $('.tour-filter__toggle').addClass('open');
-            $('.tour-filter main-filter').addClass('active');
+            $('.tour-filter.main-filter').addClass('active');
         }
 
     }
@@ -918,7 +918,7 @@ export default class SearchResultList extends Component {
             return (
                 <div className="inner">
                     <div className="row">
-                        <div className="col__left -col-60 content-region-left">
+                        <div className="col__left -col-60 content-region-left -search-not-started">
                             <h2>Укажите город отправления, страну/город назначения и нажмите кнопку "Искать"</h2>
                         </div>
                     </div>
@@ -950,8 +950,8 @@ export default class SearchResultList extends Component {
         let search = Object.values(this.state.SEARCH);
 
 
-        console.log('this.state.arXHRs: ', this.state.arXHRs);
-        console.log('this.arXHRs: ', this.arXHRs);
+        //console.log('this.state.arXHRs: ', this.state.arXHRs);
+        //console.log('this.arXHRs: ', this.arXHRs);
 
 
         // фильтро по обводке
