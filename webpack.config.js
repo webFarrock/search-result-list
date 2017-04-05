@@ -14,14 +14,14 @@ module.exports = {
     },
     watch: NODE_ENV == 'development',
     plugins: [
-
+/*
         new webpack.optimize.UglifyJsPlugin({
             compress: {
                 warnings: false
             },
             sourceMap: false,
         })
-
+*/
     ],
     module: {
         loaders: [{

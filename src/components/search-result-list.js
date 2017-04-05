@@ -24,6 +24,8 @@ export default class SearchResultList extends Component {
         super(props);
 
 
+        window.reactApp = this;
+
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
         this.LL_API_IN = window.RuInturistStore.LL_API_IN;
         this.curDate = window.RuInturistStore.initForm.dateFrom
@@ -31,11 +33,15 @@ export default class SearchResultList extends Component {
         this.NTK_PACk_TYPES = window.RuInturistStore.NTK_PACk_TYPES;
         this.USER_FAV = window.RuInturistStore.USER_FAV || [];
         this.USER_FAV = this.USER_FAV.map(i => +i);
+        this.FEED_TYPES = window.RuInturistStore.FEED_TYPES || [];
 
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
         this.itemsPerPage = 25; // кол-во элементов на стр
         this.LLCompletedRequests = {};
+
+        this.cartHeight = 259;
+        this.itemsPerPage = 20;
 
 
         this.mapZoom = 7;
@@ -50,12 +56,7 @@ export default class SearchResultList extends Component {
         this.onScrollButtonClick = this.onScrollButtonClick.bind(this);
         this.filterToggle = this.filterToggle.bind(this);
         this.resultsHandler = this.resultsHandler.bind(this);
-
-
-        //console.log('=====================================');
-        //console.log('NTK_PACk_TYPES: ', this.NTK_PACk_TYPES);
-        //console.log('LL_API_IN: ', this.LL_API_IN);
-        //console.log('=====================================');
+        this.handleScrollFrame = this.handleScrollFrame.bind(this);
 
         this.map = {
             inited: false,
@@ -109,6 +110,7 @@ export default class SearchResultList extends Component {
             }, this.filterStartValue),
             arAllRegions: [],
             arAllBoards: [],
+            arAllBoardsMap: [], //{code, name}
             curDate: this.curDate,
             dates: this.getDatesList(),
 
@@ -204,7 +206,7 @@ export default class SearchResultList extends Component {
     }
 
     chkLTResultStatus(request_id) {
-        if (!this.state.isLLCompleted) return;
+       //?????? if (!this.state.isLLCompleted) return;
 
         var xhr = $.ajax({
             url: '/local/include/ajax/chk-lt-result.php',
@@ -251,7 +253,6 @@ export default class SearchResultList extends Component {
 
     getLTCompletedRequests(request_id, isLastRequest) {
 
-        const _this = this;
         var xhr = $.ajax({
             url: '/tour-search/ajax.php',
             data: {
@@ -322,9 +323,8 @@ export default class SearchResultList extends Component {
 
     getNtkHotelList() {
 
+
         if (this.NTK_API_IN.Destination) {
-
-
 
             this.setState({isSearchWasStarted: true});
             this.NTK_PACk_TYPES.forEach((pack) => {
@@ -343,9 +343,6 @@ export default class SearchResultList extends Component {
 
                     if (data && data.SEARCH instanceof Object) {
 
-                        //console.log('=========================');
-                        //console.log('NTK_API_IN: ', NTK_API_IN);
-                        //console.log('=========================');
 
                         let minServices = '';
                         if (+NTK_API_IN['FlightType'] == 1) {
@@ -456,6 +453,8 @@ export default class SearchResultList extends Component {
         arAllRegions = naturalSort(arAllRegions);
 
         let arAllBoards = [...this.state.arAllBoards];
+       // let arAllBoardsMap = [...this.state.arAllBoardsMap];
+
         for (let key in obSearch) {
             if (obSearch[key].Board.length) {
                 arAllBoards = [...arAllBoards, ...obSearch[key].Board];
@@ -479,7 +478,7 @@ export default class SearchResultList extends Component {
                 priceTo: priceMax,
                 priceMax: priceMax,
             }),
-
+            page: 1,
             dates: Object.assign({}, dates),
             arAllRegions: arAllRegions,
             arAllBoards: arAllBoards,
@@ -527,6 +526,7 @@ export default class SearchResultList extends Component {
 
             const isInFav = this.state.USER_FAV.indexOf(hotel.bxHotelId) !== -1;
 
+
             return (
                 <li className="list__item"
                     key={idx}
@@ -566,7 +566,7 @@ export default class SearchResultList extends Component {
                                   onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
                             ></span>
 
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
+                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotel.Board.join(', ')} {hotelInfo.NAME}</h5>
                             <div
                                 className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
 
@@ -592,11 +592,40 @@ export default class SearchResultList extends Component {
                     ref="scrollbars"
                     autoHeight
                     autoHeightMin={600}
+
+                    onScrollFrame={this.handleScrollFrame}
                 >
+
                     {hotels}
                 </Scrollbars>
             </ul>
         )
+    }
+
+    handleScrollFrame(){
+
+        if(!this.searchLength) return;
+
+        const {scrollbars} = this.refs;
+        const scrollHeight = +scrollbars.getScrollHeight();
+        const scrollTop = +scrollbars.getScrollTop();
+        const newVal = +(Math.round(scrollTop / this.cartHeight) * this.cartHeight + this.cartHeight);
+        const pagesTotal = Math.ceil(this.searchLength / this.itemsPerPage);
+
+
+        if((newVal + this.cartHeight*2) > scrollHeight){
+
+
+
+            if(this.state.page < pagesTotal){
+                this.setState({page: this.state.page + 1});
+            }
+            
+
+
+
+        }
+
     }
 
 
@@ -605,6 +634,7 @@ export default class SearchResultList extends Component {
 
         this.setState({
             filter: Object.assign(this.state.filter, this.filterStartValue),
+            page: 1,
         });
 
     }
@@ -686,10 +716,6 @@ export default class SearchResultList extends Component {
         let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
 
         if (!arDates.length) return;
-
-        //console.log('=======================');
-        //console.log('this.state.dates: ', this.state.dates);
-        //console.log('arDates: ', arDates);
 
 
         return (
@@ -870,19 +896,9 @@ export default class SearchResultList extends Component {
                                     <span className="text">Все типы</span>
                                 </label>
                             </div>
-                            {this.state.arAllBoards.map((board, idx) => {
-                                return (
-                                    <div className="block-checkbox" key={idx}>
-                                        <label className="label-checkbox">
-                                            <input type="checkbox"
-                                                   readOnly
-                                                   onChange={() => this.setBoard(board)}
-                                                   checked={-1 !== arBoards.indexOf(board)}/>
-                                            <span className="text">{board}</span>
-                                        </label>
-                                    </div>
-                                );
-                            })}
+
+                            {this.renderFeedTypes()}
+
                         </div>
                     </div>
 
@@ -967,9 +983,6 @@ export default class SearchResultList extends Component {
         let search = Object.values(this.state.SEARCH);
 
 
-        //console.log('this.state.arXHRs: ', this.state.arXHRs);
-        //console.log('this.arXHRs: ', this.arXHRs);
-
 
         // фильтро по обводке
         if (this.state.coordinates.length) {
@@ -998,7 +1011,7 @@ export default class SearchResultList extends Component {
 
         // фильтр по типу питания
         if (filter.arBoards.length) {
-            search = search.filter(i => i.Board.some(board => -1 !== filter.arBoards.indexOf(board)));
+            search = search.filter(hotel => filter.arBoards.some(boardName => _.intersection(hotel.Board, this.FEED_TYPES[boardName]).length));
         }
 
         if (filter.onlyNTKOperator) {
@@ -1047,7 +1060,10 @@ export default class SearchResultList extends Component {
 
         console.timeEnd("Pre render ");
 
-        const searchLength = Object.keys(this.state.SEARCH).length;
+        //const searchLength = Object.keys(this.state.SEARCH).length;
+        this.searchLength = search.length;
+
+        search = search.slice(0, 20*this.state.page);
 
         return (
             <div className="inner">
@@ -1055,8 +1071,8 @@ export default class SearchResultList extends Component {
                 <div className="row">
                     <div className="col__left -col-60 content-region-left">
                         <h2>
-                            {searchLength ? `Поиск тура: найдено предложений ${searchLength}` : ''}
-                            {searchLength && !this.isAllXHRCompleted() && (!this.state.isLLCompleted || !this.state.isNtkCompleted) ?
+                            {this.searchLength ? `Поиск тура: найдено предложений ${this.searchLength}` : ''}
+                            {this.searchLength && !this.isAllXHRCompleted() && (!this.state.isLLCompleted || !this.state.isNtkCompleted) ?
                                 <LoaderMini />
                                 : '' }
                         </h2>
@@ -1104,9 +1120,11 @@ export default class SearchResultList extends Component {
 
                                     {this.renderSearchArea(search)}
 
-                                    <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
-                                        <span className="icon-arrow-bottom"></span>
-                                    </div>
+                                    {search.length ?
+                                        <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
+                                            <span className="icon-arrow-bottom"></span>
+                                        </div>
+                                    : ''}
 
 
                                 </div>
@@ -1133,16 +1151,11 @@ export default class SearchResultList extends Component {
 
     initMap() {
 
-        //console.log('--->initMap()');
-        //console.log('--->initMap()');
-
         if (!ymaps) return;
 
         if (this.state.yandexMapInited) return;
 
         try {
-
-            //console.log('--->initMap() ->> try');
 
             this.map.entity = new ymaps.Map("map", {
                 center: this.mapCenter,
@@ -1547,7 +1560,8 @@ export default class SearchResultList extends Component {
         }
 
         this.setState({
-            filter: Object.assign({}, this.state.filter, {arBoards: arBoards})
+            filter: Object.assign({}, this.state.filter, {arBoards: arBoards}),
+            page: 1,
         });
 
     }
@@ -1572,7 +1586,8 @@ export default class SearchResultList extends Component {
         }
 
         this.setState({
-            filter: Object.assign({}, this.state.filter, {arRegions: arRegions})
+            filter: Object.assign({}, this.state.filter, {arRegions: arRegions}),
+            page: 1,
         });
 
     }
@@ -1597,21 +1612,24 @@ export default class SearchResultList extends Component {
         }
 
         this.setState({
-            filter: Object.assign({}, this.state.filter, {arServices: arServices})
+            filter: Object.assign({}, this.state.filter, {arServices: arServices}),
+            page: 1,
         });
 
     }
 
     setOperator(onlyNTKOperator) {
         this.setState({
-            filter: Object.assign({}, this.state.filter, {onlyNTKOperator: onlyNTKOperator})
+            filter: Object.assign({}, this.state.filter, {onlyNTKOperator: onlyNTKOperator}),
+            page: 1,
         });
     }
 
     setSort(sort) {
         if (this.state.filter.sort == sort) return;
         this.setState({
-            filter: Object.assign({}, this.state.filter, {sort: sort})
+            filter: Object.assign({}, this.state.filter, {sort: sort}),
+            page: 1,
         })
     }
 
@@ -1641,8 +1659,13 @@ export default class SearchResultList extends Component {
     }
 
     filterBlockToggle(blockId) {
+
+        if(this.state.filter.expandedBlock === blockId) {
+            blockId = null;
+        }
+
         this.setState({
-            filter: Object.assign({}, this.state.filter, {expandedBlock: blockId})
+            filter: Object.assign({}, this.state.filter, {expandedBlock: blockId}),
         });
     }
 
@@ -1668,9 +1691,11 @@ export default class SearchResultList extends Component {
     onScrollButtonClick() {
 
         const {scrollbars} = this.refs;
-        const scrollHeight = scrollbars.getScrollHeight();
-        const cartHeight = 259;
-        const newVal = Math.round(scrollbars.getScrollTop() / cartHeight) * cartHeight + cartHeight;
+
+        const scrollHeight = +scrollbars.getScrollHeight();
+        const scrollTop = +scrollbars.getScrollTop();
+
+        const newVal = + (Math.round(scrollTop / this.cartHeight) * this.cartHeight + this.cartHeight);
 
         if (newVal < scrollHeight) {
             scrollbars.scrollTop(newVal);
@@ -1720,6 +1745,34 @@ export default class SearchResultList extends Component {
     }
 
     setLLAsFinished() {
-        this.setState({chkLTResNum: 777, isLLCompleted: false});
+        this.setState({chkLTResNum: 777, isLLCompleted: true});
+    }
+
+
+    renderFeedTypes(){
+        let allowedBoards = [];
+        const {arBoards} = this.state.filter;
+
+        for (let key in this.FEED_TYPES){
+
+            if(_.intersection(this.state.arAllBoards, this.FEED_TYPES[key]).length){
+                allowedBoards.push(key);
+            }
+        }
+
+        return allowedBoards.map((board, idx) => {
+            return (
+                <div className="block-checkbox" key={idx}>
+                    <label className="label-checkbox">
+                        <input type="checkbox"
+                               readOnly
+                               onChange={() => this.setBoard(board)}
+                               checked={-1 !== arBoards.indexOf(board)}/>
+                        <span className="text">{board}</span>
+                    </label>
+                </div>
+            );
+        });
+
     }
 }
