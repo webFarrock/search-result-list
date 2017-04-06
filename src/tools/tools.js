@@ -235,6 +235,8 @@ export function initSliderRange(reactApp = null) {
                                 priceTo: priceTo,
                             }),
                         });
+
+                        reactApp.refs.scrollbars.scrollTop(0);
                     }
                 }
             });
@@ -308,6 +310,7 @@ export function initSliderStars(reactApp = null) {
                         });
                     }
 
+                    reactApp.refs.scrollbars.scrollTop(0);
                 }
             });
         });
@@ -427,8 +430,10 @@ export let Render = {
 
             this.reactApp.setState({
                 coordinates: this.coordinates,
+                markers: this.reactApp.map.markers,
                 isRender: false,
             });
+            reactApp.refs.scrollbars.scrollTop(0);
 
             this.draw('finish');
         } else if (res == 'move') {

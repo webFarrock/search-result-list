@@ -34,6 +34,8 @@ export default class SearchResultList extends Component {
         this.USER_FAV = window.RuInturistStore.USER_FAV || [];
         this.USER_FAV = this.USER_FAV.map(i => +i);
         this.FEED_TYPES = window.RuInturistStore.FEED_TYPES || [];
+        this.selectedHotels = window.RuInturistStore.initForm.hotel || [];
+        //this.selectedHotels = [];
 
         this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
@@ -82,7 +84,7 @@ export default class SearchResultList extends Component {
         this.filterStartValue = {
 
             priceFrom: 10000,
-            priceTo: 1000000,
+            priceTo: 0,
             sort: 'asc',
             arRegions: [],
             arBoards: [],
@@ -104,13 +106,9 @@ export default class SearchResultList extends Component {
             isMapWide: false,
             filter: Object.assign({
                 active: false,
-                expandedBlock: null,
                 priceMin: 10000,
                 priceMax: 1000000,
             }, this.filterStartValue),
-            arAllRegions: [],
-            arAllBoards: [],
-            arAllBoardsMap: [], //{code, name}
             curDate: this.curDate,
             dates: this.getDatesList(),
 
@@ -152,6 +150,7 @@ export default class SearchResultList extends Component {
                 url: '/tour-search/ajax.php',
                 data: {
                     LL_API_IN: this.LL_API_IN,
+                    selectedHotels: this.selectedHotels,
                     ajax: 'Y',
                     dataType: 'json',
                     cache: false
@@ -258,6 +257,7 @@ export default class SearchResultList extends Component {
             data: {
                 request_id: request_id,
                 lt_action: 'get_resuls',
+                selectedHotels: this.selectedHotels,
                 ajax: 'Y',
                 origUrl: document.location.href,
                 dataType: 'json',
@@ -333,6 +333,7 @@ export default class SearchResultList extends Component {
                 let xhr = $.ajax({
                     url: this.ajaxUrl,
                     data: {
+                        selectedHotels: this.selectedHotels,
                         NTK_API_IN,
                         ajax: 'Y',
                         origUrl: document.location.href
@@ -395,6 +396,7 @@ export default class SearchResultList extends Component {
     resultsHandler(obSearch, hotelsInfo, userFav, isNtk) {
 
         // все дубли по отелям с ценой большей минимальной удаляем
+
         let arUsedKeys = [];
         Object.values(obSearch)
             .sort((i, j) => i.Price - j.Price)
@@ -410,79 +412,85 @@ export default class SearchResultList extends Component {
         let dates = Object.assign({}, this.state.dates);
 
         for (let key in obSearch) {
+            const tourDate = obSearch[key].HotelLoadDate;
+            const hotelInfo = hotelsInfo[obSearch[key].HOTEL_INFO_ID];
+
             if (obSearch[key].Price < priceMin) priceMin = obSearch[key].Price;
             if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
 
-            if (
-                dates[obSearch[key].HotelLoadDate] &&
-                (!dates[obSearch[key].HotelLoadDate].Price || dates[obSearch[key].HotelLoadDate].Price > obSearch[key].Price)
-            ) {
-                dates[obSearch[key].HotelLoadDate].Price = obSearch[key].Price;
+
+            if(dates[tourDate]){
+
+                if (!dates[tourDate].priceMin || dates[tourDate].priceMin > obSearch[key].Price) {
+                    dates[tourDate].priceMin = obSearch[key].Price;
+                    dates[tourDate].priceFrom = obSearch[key].Price;
+                }
+
+                if (!dates[tourDate].priceMax || dates[tourDate].priceMax < obSearch[key].Price) {
+                    dates[tourDate].priceMax = obSearch[key].Price;
+                    dates[tourDate].priceTo = obSearch[key].Price;
+                }
+
+                if (obSearch[key].Board.length) {
+                    dates[tourDate].arAllBoards = [...dates[tourDate].arAllBoards, ...obSearch[key].Board];
+                }
+
+                if(hotelInfo.LOCATION[1]){
+                    dates[tourDate].arAllRegions.push(hotelInfo.LOCATION[1]);
+                }
+
             }
 
         }
+
+        //priceMin = Math.floor(priceMin/1000)*1000;
+        //priceMax = Math.ceil(priceMax/1000)*1000;
 
 
         if (Object.keys(dates).length) {
             for (let key in dates) {
 
-                let printPrice;
+                let printPriceMinTopSlider;
 
-                if (dates[key].Price) {
-                    printPrice = (
+                if (dates[key].priceMin) {
+                    printPriceMinTopSlider = (
                         <div className="tour-week__filter__item__price">от
-                            <span>{numberFormat(dates[key].Price, 0, '', ' ')} р</span></div>
+                            <span>{numberFormat(dates[key].priceMin, 0, '', ' ')} р</span></div>
                     )
                 } else {
-                    printPrice = <div className="tour-week__filter__item__price">Нет туров</div>;
+                    printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
                 }
 
-                dates[key].printPrice = printPrice;
+                dates[key].printPriceMinTopSlider = printPriceMinTopSlider;
+                dates[key].printPriceMin = numberFormat(dates[key].priceMin, 0, '', ' ');
+                dates[key].printPriceMax = numberFormat(dates[key].priceMax, 0, '', ' ');
+
+                dates[key].arAllRegions = naturalSort(_.uniq(dates[key].arAllRegions));
+                dates[key].arAllBoards = naturalSort(_.uniq(dates[key].arAllBoards));
             }
         }
 
 
-        let arAllRegions = [...this.state.arAllRegions];
-        for (let key in hotelsInfo) {
-            if (hotelsInfo[key].LOCATION[1]) {
-                arAllRegions.push(hotelsInfo[key].LOCATION[1]);
-            }
-        }
 
-        arAllRegions = _.uniq(arAllRegions);
-        arAllRegions = naturalSort(arAllRegions);
-
-        let arAllBoards = [...this.state.arAllBoards];
-       // let arAllBoardsMap = [...this.state.arAllBoardsMap];
-
-        for (let key in obSearch) {
-            if (obSearch[key].Board.length) {
-                arAllBoards = [...arAllBoards, ...obSearch[key].Board];
-            }
-        }
-
-        arAllBoards = _.uniq(arAllBoards);
-        arAllBoards = naturalSort(arAllBoards);
-
-        // at the end
 
 
         let isNtkCompleted = this.state.isNtkCompleted;
         if(isNtk)isNtkCompleted++;
 
+        let {priceFrom, priceTo} = dates[this.state.curDate];
+        priceFrom = Math.floor(priceFrom/1000)*1000;
+        priceTo = Math.ceil(priceTo/1000)*1000;
+
         this.setState({
 
             filter: Object.assign({}, this.state.filter, {
-                priceFrom: priceMin,
-                priceMin: priceMin,
-                priceTo: priceMax,
-                priceMax: priceMax,
+                priceFrom: priceFrom,
+                priceMin: priceFrom,
+                priceTo: priceTo,
+                priceMax: priceTo,
             }),
             page: 1,
             dates: Object.assign({}, dates),
-            arAllRegions: arAllRegions,
-            arAllBoards: arAllBoards,
-
             SEARCH: obSearch,
             HOTELS_INFO: hotelsInfo,
             isNtkCompleted: isNtkCompleted
@@ -490,8 +498,9 @@ export default class SearchResultList extends Component {
         });
 
 
-        this.filterStartValue.priceFrom = priceMin;
-        this.filterStartValue.priceTo = priceMax;
+
+        this.filterStartValue.priceFrom = Math.floor(dates[this.state.curDate].priceFrom/1000)*1000;;
+        this.filterStartValue.priceTo = Math.ceil(dates[this.state.curDate].priceTo/1000)*1000;;
 
     }
 
@@ -526,7 +535,6 @@ export default class SearchResultList extends Component {
 
             const isInFav = this.state.USER_FAV.indexOf(hotel.bxHotelId) !== -1;
 
-
             return (
                 <li className="list__item"
                     key={idx}
@@ -558,7 +566,7 @@ export default class SearchResultList extends Component {
                                 : ''}
                         </div>
                         <div className="col__middle hotel-card__content">
-                            <div className="rating left -star-4"></div>
+                            {this.getStarsHtml(hotelInfo.STARS, hotelInfo.STARS_INT)}
                             <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
                                   onClick={() => this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
                             ></span>
@@ -566,7 +574,7 @@ export default class SearchResultList extends Component {
                                   onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
                             ></span>
 
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotel.Board.join(', ')} {hotelInfo.NAME}</h5>
+                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
                             <div
                                 className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
 
@@ -614,15 +622,10 @@ export default class SearchResultList extends Component {
 
 
         if((newVal + this.cartHeight*2) > scrollHeight){
-
-
-
+            
             if(this.state.page < pagesTotal){
                 this.setState({page: this.state.page + 1});
             }
-            
-
-
 
         }
 
@@ -637,6 +640,7 @@ export default class SearchResultList extends Component {
             page: 1,
         });
 
+        this.refs.scrollbars.scrollTop(0);
     }
 
     getFiltersNum() {
@@ -669,7 +673,11 @@ export default class SearchResultList extends Component {
 
         if (!Object.keys(this.state.SEARCH).length) return;
 
-        const {filter} = this.state;
+
+        const {filter, curDate, dates} = this.state;
+
+        const {priceMin, priceMax} = dates[curDate];
+
 
         let filterHeaderCls = ' tour-addit__filter__top ';
         if (filter.active) filterHeaderCls += ' active ';
@@ -680,32 +688,34 @@ export default class SearchResultList extends Component {
             <div className="tour-filter__wrap tour-filter__wrap__bottom">
                 <div className="row inner">
                     {this.renderDates()}
-                    <div className="region-right col__left -col-35">
-                        <div className="tour-addit__filter">
-                            <div className={filterHeaderCls} onClick={this.filterToggle}>
-                                {filter.active ?
-                                    <div className="tour-addit__filter__top__inner filter-active">
-                                        <span className="icon-tube"></span>
-                                        <span className="center">
-                                            <span className="text">Выбрано фильтров: {filtersNum}</span>
-                                            {filtersNum ?
-                                                <a className="clear-filters"
-                                                   onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
-                                                : ''}
-									    </span>
-                                        <span className="icon-arrow-up"></span>
-                                    </div>
-                                    :
-                                    <div className="tour-addit__filter__top__inner filter-default">
-                                        <span className="icon-tube"></span>
-                                        <span className="text">Дополнительные фильтры</span>
-                                        <span className="icon-arrow-down"></span>
-                                    </div>
-                                }
+                    {(priceMin, priceMax) ?
+                        <div className="region-right col__left -col-35">
+                            <div className="tour-addit__filter">
+                                <div className={filterHeaderCls} onClick={this.filterToggle}>
+                                    {filter.active ?
+                                        <div className="tour-addit__filter__top__inner filter-active">
+                                            <span className="icon-tube"></span>
+                                            <span className="center">
+                                                <span className="text">Выбрано фильтров: {filtersNum}</span>
+                                                {filtersNum ?
+                                                    <a className="clear-filters"
+                                                       onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
+                                                    : ''}
+                                            </span>
+                                            <span className="icon-arrow-up"></span>
+                                        </div>
+                                        :
+                                        <div className="tour-addit__filter__top__inner filter-default">
+                                            <span className="icon-tube"></span>
+                                            <span className="text">Дополнительные фильтры</span>
+                                            <span className="icon-arrow-down"></span>
+                                        </div>
+                                    }
+                                </div>
+                                {this.renderFilterBody()}
                             </div>
-                            {this.renderFilterBody()}
                         </div>
-                    </div>
+                    : ''}
                 </div>
             </div>
         );
@@ -714,6 +724,7 @@ export default class SearchResultList extends Component {
     renderDates() {
 
         let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
+        console.log('arDates: ', arDates);
 
         if (!arDates.length) return;
 
@@ -728,7 +739,7 @@ export default class SearchResultList extends Component {
                                  key={idx}>
                                 <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
                                 <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
-                                {date.printPrice}
+                                {date.printPriceMinTopSlider}
                             </div>
                         )
                     })}
@@ -739,7 +750,8 @@ export default class SearchResultList extends Component {
     }
 
     renderFilterBody() {
-        const {filter} = this.state
+        const {filter, curDate, dates} = this.state
+        const arAllRegions = dates[curDate].arAllRegions;
 
         if (!filter.active) return;
 
@@ -753,30 +765,30 @@ export default class SearchResultList extends Component {
             arServices,
         } = filter;
 
+
         let filtersNum = this.getFiltersNum();
 
         return (
             <div className="tour-addit__filter__dropdown">
                 <div className="tour-addit__filter__dropdown__inner">
-                    <div className="block-inline block-inline__top">
-                        <h5>Диапазон цен</h5>
-                        <div className="tour-filter__range">
-                            <span className="first">
-                                <span className="pre-text">от</span>
-                                <span className="js-sider-range-text-from-1"></span>
-                                <span className="rub">P</span>
-                            </span>
-                            <span className="last">
-                                <span className="pre-text">до</span>
-                                <span className="js-sider-range-text-to-1"></span>
-                                <span className="rub">P</span>
-                            </span>
+                        <div className="block-inline block-inline__top">
+                            <h5>Диапазон цен</h5>
+                            <div className="tour-filter__range">
+                                <span className="first">
+                                    <span className="pre-text">от</span>
+                                    <span className="js-sider-range-text-from-1"></span>
+                                    <span className="rub">P</span>
+                                </span>
+                                <span className="last">
+                                    <span className="pre-text">до</span>
+                                    <span className="js-sider-range-text-to-1"></span>
+                                    <span className="rub">P</span>
+                                </span>
+                            </div>
+                            <div className="slider-range" data-index="1" data-min={filter.priceMin}
+                                 data-max={filter.priceMax}
+                                 data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
                         </div>
-                        <div className="slider-range" data-index="1" data-min={filter.priceMin}
-                             data-max={filter.priceMax}
-                             data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
-                    </div>
-
                     <div
                         className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' : '')}>
 
@@ -845,7 +857,7 @@ export default class SearchResultList extends Component {
                                     <span className="text">Все регионы</span>
                                 </label>
                             </div>
-                            {this.state.arAllRegions.map((region, idx) => {
+                            {arAllRegions.map((region, idx) => {
                                 return (
                                     <div className="block-checkbox" key={idx}>
                                         <label className="label-checkbox">
@@ -982,10 +994,8 @@ export default class SearchResultList extends Component {
 
         let search = Object.values(this.state.SEARCH);
 
-
-
         // фильтро по обводке
-        if (this.state.coordinates.length) {
+        if (this.state.coordinates.length && this.state.markers) {
             console.time("фильтро по обводке time");
             search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
             console.timeEnd("фильтро по обводке time");
@@ -1053,9 +1063,12 @@ export default class SearchResultList extends Component {
         });
         console.timeEnd("sort by price");
 
+
         // отрисовка точек только после всех фильтров
         if (!this.state.isRender) {
             this.renderMapPoints(search);
+
+
         }
 
         console.timeEnd("Pre render ");
@@ -1343,57 +1356,7 @@ export default class SearchResultList extends Component {
                 return;
             }
 
-
-            /*
-             let price = numberFormat(item.Price, 0, ',', ' ');
-
-             let stars = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS;
-             let starsInt = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS_INT;
-             let starsHtml = '';
-
-             if (starsInt > 0) {
-             starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
-             } else if (starsInt == 0) {
-             starsHtml = '';
-             } else {
-             starsHtml = <div class="rating_litera"> {stars} </div>
-             }
-             */
-
-
             this.map.markers2add.push(item.HOTEL_INFO_ID);
-
-            /*
-
-             this.map.markers[item.HOTEL_INFO_ID] = new ymaps.Placemark([point[0], point[1]], {
-             price: price,
-             descr: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].LOCATION.join(', '),
-             hotelName: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].NAME,
-             hotelStarHtml: starsHtml,
-             hotelLink: this.state.HOTELS_INFO[item.HOTEL_INFO_ID].DETAIL_LINK,
-             }, {
-             balloonContentLayout: BalloonContentLayout,
-             balloonLayout: MyBalloonLayout,
-             balloonPanelMaxMapArea: 0,
-             iconLayout: 'default#image',
-             iconImageHref: '/local/tpl/dist/static/i/icon-map.png',
-             iconImageSize: [32, 47],
-             iconImageOffset: [-12, -42]
-             });
-
-
-             this.map.collection.add(this.map.markers[item.HOTEL_INFO_ID]);
-
-             this.map.markers[item.HOTEL_INFO_ID].events
-             .add('mouseenter', (e) => {
-             e.get('target').options.set('iconImageHref', this.mapMarkerHover);
-             })
-             .add('mouseleave', (e) => {
-             e.get('target').options.set('iconImageHref', this.mapMarker);
-             });
-
-             */
-
 
         });
 
@@ -1431,15 +1394,7 @@ export default class SearchResultList extends Component {
 
                 let stars = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS;
                 let starsInt = this.state.HOTELS_INFO[item.HOTEL_INFO_ID].STARS_INT;
-                let starsHtml = '';
-
-                if (starsInt > 0) {
-                    starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
-                } else if (starsInt == 0) {
-                    starsHtml = '';
-                } else {
-                    starsHtml = <div class="rating_litera"> {stars} </div>
-                }
+                let starsHtml = this.getStarsHtml(stars, starsInt, true);
 
 
                 this.map.markers[item.HOTEL_INFO_ID] = new ymaps.Placemark([point[0], point[1]], {
@@ -1470,6 +1425,9 @@ export default class SearchResultList extends Component {
                     });
 
             });
+
+
+            this.setState({fakeMapMarkers: Object.keys(this.map.markers).length});
 
             this.map.entity.geoObjects.add(this.map.collection);
 
@@ -1564,6 +1522,9 @@ export default class SearchResultList extends Component {
             page: 1,
         });
 
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
+
     }
 
     setRegion(region) {
@@ -1589,6 +1550,9 @@ export default class SearchResultList extends Component {
             filter: Object.assign({}, this.state.filter, {arRegions: arRegions}),
             page: 1,
         });
+
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
 
     }
 
@@ -1616,6 +1580,9 @@ export default class SearchResultList extends Component {
             page: 1,
         });
 
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
+
     }
 
     setOperator(onlyNTKOperator) {
@@ -1623,14 +1590,21 @@ export default class SearchResultList extends Component {
             filter: Object.assign({}, this.state.filter, {onlyNTKOperator: onlyNTKOperator}),
             page: 1,
         });
+
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
     }
 
     setSort(sort) {
         if (this.state.filter.sort == sort) return;
+
         this.setState({
             filter: Object.assign({}, this.state.filter, {sort: sort}),
             page: 1,
-        })
+        });
+
+        const {scrollbars} = this.refs;
+        scrollbars.scrollTop(0);
     }
 
     getDatesList() {
@@ -1653,6 +1627,8 @@ export default class SearchResultList extends Component {
                 dateRaw: dateRaw,
                 dayOfWeek: date2add.format('dddd'),
                 dayAndMonth: date2add.format('D MMMM'),
+                arAllRegions: [],
+                arAllBoards: [],
             };
         }
         return dates;
@@ -1677,8 +1653,20 @@ export default class SearchResultList extends Component {
     }
 
     onWeekFilterClick(curDate) {
+        let {priceFrom, priceTo} = this.state.dates[curDate];
 
-        this.setState({curDate});
+        priceFrom = Math.floor(priceFrom/1000)*1000;
+        priceTo = Math.ceil(priceTo/1000)*1000;
+
+        this.setState({
+            curDate,
+            filter: Object.assign({}, this.state.filter, {
+                priceFrom: priceFrom,
+                priceMin: priceFrom,
+                priceTo: priceTo,
+                priceMax: priceTo,
+            }),
+        });
 
         if (this.state.coordinates.length) {
             this.renderButtonClick();
@@ -1751,11 +1739,12 @@ export default class SearchResultList extends Component {
 
     renderFeedTypes(){
         let allowedBoards = [];
+        let arAllBoards = this.state.dates[this.state.curDate].arAllBoards;
         const {arBoards} = this.state.filter;
 
         for (let key in this.FEED_TYPES){
 
-            if(_.intersection(this.state.arAllBoards, this.FEED_TYPES[key]).length){
+            if(_.intersection(arAllBoards, this.FEED_TYPES[key]).length){
                 allowedBoards.push(key);
             }
         }
@@ -1774,5 +1763,31 @@ export default class SearchResultList extends Component {
             );
         });
 
+    }
+
+
+    getStarsHtml(stars, starsInt, isMap){
+        let starsHtml = '';
+
+        if (starsInt > 0) {
+
+            if(isMap){
+                starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
+            }else{
+                starsHtml = <div className={`rating left -star-${starsInt}`}></div>;
+            }
+
+        } else if (!stars) {
+            starsHtml = '';
+        } else {
+
+            if(isMap){
+                starsHtml = ''
+            }else{
+                starsHtml = <div className="rating_litera left"> {stars} </div>
+            }
+        }
+
+        return starsHtml;
     }
 }
