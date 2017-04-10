@@ -205,7 +205,7 @@ export default class SearchResultList extends Component {
     }
 
     chkLTResultStatus(request_id) {
-       //?????? if (!this.state.isLLCompleted) return;
+        //?????? if (!this.state.isLLCompleted) return;
 
         var xhr = $.ajax({
             url: '/local/include/ajax/chk-lt-result.php',
@@ -408,17 +408,15 @@ export default class SearchResultList extends Component {
             });
 
 
-
-
         let dates = this.fillDates(obSearch, hotelsInfo);
 
 
         let isNtkCompleted = this.state.isNtkCompleted;
-        if(isNtk)isNtkCompleted++;
+        if (isNtk) isNtkCompleted++;
 
         let {priceFrom, priceTo} = dates[this.state.curDate];
-        priceFrom = Math.floor(priceFrom/1000)*1000;
-        priceTo = Math.ceil(priceTo/1000)*1000;
+        priceFrom = Math.floor(priceFrom / 1000) * 1000;
+        priceTo = Math.ceil(priceTo / 1000) * 1000;
 
         this.setState({
 
@@ -437,9 +435,10 @@ export default class SearchResultList extends Component {
         });
 
 
-
-        this.filterStartValue.priceFrom = Math.floor(dates[this.state.curDate].priceFrom/1000)*1000;;
-        this.filterStartValue.priceTo = Math.ceil(dates[this.state.curDate].priceTo/1000)*1000;;
+        this.filterStartValue.priceFrom = Math.floor(dates[this.state.curDate].priceFrom / 1000) * 1000;
+        ;
+        this.filterStartValue.priceTo = Math.ceil(dates[this.state.curDate].priceTo / 1000) * 1000;
+        ;
 
     }
 
@@ -449,7 +448,7 @@ export default class SearchResultList extends Component {
         this.getNtkHotelList();
         this.getLTHotelList();
 
-        if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country){
+        if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country) {
             $('.tour-filter__toggle').addClass('open');
             $('.tour-filter.main-filter').addClass('active');
         }
@@ -549,9 +548,9 @@ export default class SearchResultList extends Component {
         )
     }
 
-    handleScrollFrame(){
+    handleScrollFrame() {
 
-        if(!this.searchLength) return;
+        if (!this.searchLength) return;
 
         const {scrollbars} = this.refs;
         const scrollHeight = +scrollbars.getScrollHeight();
@@ -560,9 +559,9 @@ export default class SearchResultList extends Component {
         const pagesTotal = Math.ceil(this.searchLength / this.itemsPerPage);
 
 
-        if((newVal + this.cartHeight*2) > scrollHeight){
-            
-            if(this.state.page < pagesTotal){
+        if ((newVal + this.cartHeight * 2) > scrollHeight) {
+
+            if (this.state.page < pagesTotal) {
                 this.setState({page: this.state.page + 1});
             }
 
@@ -589,11 +588,11 @@ export default class SearchResultList extends Component {
 
             if (key == 'priceFrom' || key == 'priceTo') {
                 /*
-                if (!isPriceConsidered && (this.filterStartValue[key] != this.state.filter[key])) {
-                    num++;
-                }
-                isPriceConsidered = true;
-                */
+                 if (!isPriceConsidered && (this.filterStartValue[key] != this.state.filter[key])) {
+                 num++;
+                 }
+                 isPriceConsidered = true;
+                 */
             } else if (key == 'arRegions' || key == 'arServices' || key == 'arBoards') {
 
                 num += this.state.filter[key].length;
@@ -656,7 +655,7 @@ export default class SearchResultList extends Component {
                                 {this.renderFilterBody()}
                             </div>
                         </div>
-                    : ''}
+                        : ''}
                 </div>
             </div>
         );
@@ -709,16 +708,20 @@ export default class SearchResultList extends Component {
 
         let filtersNum = this.getFiltersNum();
 
+        console.log('!!!!!!!!!!!!!!!!!');
+
         return (
             <div className="tour-addit__filter__dropdown">
                 <Scrollbars
                     ref="scrollbarsFilter"
                     autoHeight
                     autoHeightMin={600}
-                    className="tour-addit__filter__dropdown__inner"
+                    className="tour-addit__filter__dropdown__inner_wrapper"
 
 
                 >
+
+                    <div className="tour-addit__filter__dropdown__inner">
 
                         <div className="block-inline block-inline__top">
                             <h5>Диапазон цен</h5>
@@ -738,166 +741,166 @@ export default class SearchResultList extends Component {
                                  data-max={filter.priceMax}
                                  data-step="1000" data-from={filter.priceFrom} data-to={filter.priceTo}></div>
                         </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' : '')}>
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('stars')}>
-                            <h5>Количество звезд</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="tour-filter__range">
-                                <div className="stars">
-                                    <span className="star-0">0 <i className="icon-star"></i></span>
-                                    <span className="star-1">1 <i className="icon-star"></i></span>
-                                    <span className="star-2">2 <i className="icon-star"></i></span>
-                                    <span className="star-3">3 <i className="icon-star"></i></span>
-                                    <span className="star-4">4 <i className="icon-star"></i></span>
-                                    <span className="star-5">5 <i className="icon-star"></i></span>
-                                </div>
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'stars' ? ' expanded ' : '')}>
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('stars')}>
+                                <h5>Количество звезд</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
                             </div>
-                            <div className="slider-stars" data-min="0" data-max="5" data-step="1"
-                                 data-from={starsFrom}></div>
-                        </div>
-                    </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' : '')}>
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('regions')}>
-                            <h5>Регионы</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setRegion(null)}>
-                                <label className="label-checkbox">
-                                    <input type="checkbox" readOnly checked={!arRegions.length}/>
-                                    <span className="text">Все регионы</span>
-                                </label>
-                            </div>
-                            {arAllRegions.map((region, idx) => {
-                                return (
-                                    <div className="block-checkbox" key={idx}>
-                                        <label className="label-checkbox">
-                                            <input type="checkbox"
-                                                   readOnly
-                                                   onChange={() => this.setRegion(region)}
-                                                   checked={-1 !== arRegions.indexOf(region)}/>
-                                            <span className="text">{region}</span>
-                                        </label>
+                            <div className="block-collapse__bottom">
+                                <div className="tour-filter__range">
+                                    <div className="stars">
+                                        <span className="star-0">0 <i className="icon-star"></i></span>
+                                        <span className="star-1">1 <i className="icon-star"></i></span>
+                                        <span className="star-2">2 <i className="icon-star"></i></span>
+                                        <span className="star-3">3 <i className="icon-star"></i></span>
+                                        <span className="star-4">4 <i className="icon-star"></i></span>
+                                        <span className="star-5">5 <i className="icon-star"></i></span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'board' ? ' expanded ' : '')}>
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('board')}>
-                            <h5>Тип питания</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setBoard(null)}>
-                                <label className="label-checkbox">
-                                    <input type="checkbox" readOnly checked={!arBoards.length}/>
-                                    <span className="text">Все типы</span>
-                                </label>
+                                </div>
+                                <div className="slider-stars" data-min="0" data-max="5" data-step="1"
+                                     data-from={starsFrom}></div>
                             </div>
-
-                            {this.renderFeedTypes()}
-
                         </div>
-                    </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' : '')}>
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('service')}>
-                            <h5>Удобства</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-collapse__bottom-recreation">
-                                {this.services.map((i, idx) => {
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'regions' ? ' expanded ' : '')}>
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('regions')}>
+                                <h5>Регионы</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
+                            </div>
+                            <div className="block-collapse__bottom">
+                                <div className="block-checkbox" onClick={() => this.setRegion(null)}>
+                                    <label className="label-checkbox">
+                                        <input type="checkbox" readOnly checked={!arRegions.length}/>
+                                        <span className="text">Все регионы</span>
+                                    </label>
+                                </div>
+                                {arAllRegions.map((region, idx) => {
                                     return (
-                                        <div
-                                            className={"option" + (arServices.indexOf(i.className) !== -1 ? ' active ' : '')}
-                                            key={i.className}
-                                            onClick={(e) => {
-                                                e.target.classList.toggle('active');
-                                                this.setService(i.className);
-                                            }}>
-                                            <div className="option-text">{i.name}</div>
-                                            <span className={i.className}></span>
+                                        <div className="block-checkbox" key={idx}>
+                                            <label className="label-checkbox">
+                                                <input type="checkbox"
+                                                       readOnly
+                                                       onChange={() => this.setRegion(region)}
+                                                       checked={-1 !== arRegions.indexOf(region)}/>
+                                                <span className="text">{region}</span>
+                                            </label>
                                         </div>
                                     );
                                 })}
+                            </div>
+                        </div>
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'board' ? ' expanded ' : '')}>
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('board')}>
+                                <h5>Тип питания</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
+                            </div>
+                            <div className="block-collapse__bottom">
+                                <div className="block-checkbox" onClick={() => this.setBoard(null)}>
+                                    <label className="label-checkbox">
+                                        <input type="checkbox" readOnly checked={!arBoards.length}/>
+                                        <span className="text">Все типы</span>
+                                    </label>
+                                </div>
+
+                                {this.renderFeedTypes()}
 
                             </div>
                         </div>
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'service' ? ' expanded ' : '')}>
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('service')}>
+                                <h5>Удобства</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
+                            </div>
+                            <div className="block-collapse__bottom">
+                                <div className="block-collapse__bottom-recreation">
+                                    {this.services.map((i, idx) => {
+                                        return (
+                                            <div
+                                                className={"option" + (arServices.indexOf(i.className) !== -1 ? ' active ' : '')}
+                                                key={i.className}
+                                                onClick={(e) => {
+                                                    e.target.classList.toggle('active');
+                                                    this.setService(i.className);
+                                                }}>
+                                                <div className="option-text">{i.name}</div>
+                                                <span className={i.className}></span>
+                                            </div>
+                                        );
+                                    })}
+
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' : '')}>
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('operator')}>
+                                <h5>Туроператор</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
+                            </div>
+                            <div className="block-collapse__bottom">
+                                <div className="block-checkbox" onClick={() => this.setOperator(false)}>
+                                    <label className="label-checkbox">
+                                        <input type="checkbox" readOnly checked={!onlyNTKOperator}/>
+                                        <span className="text">Все туроператоры</span>
+                                    </label>
+                                </div>
+                                <div className="block-checkbox grey">
+                                    <label className="label-checkbox">
+                                        <input type="checkbox" readOnly
+                                               onChange={() => this.setOperator(true)}
+                                               checked={onlyNTKOperator}
+                                        />
+                                        <span className="text">Только НТК Интурист</span>
+                                    </label>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div
+                            className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' : '')}>
+
+                            <div className="block-inline__collapse__top"
+                                 onClick={() => this.filterBlockToggle('sorting')}>
+                                <h5>Сортировать по: цене</h5>
+                                <span className="icon-arrow-down"></span>
+                                <span className="icon-arrow-up"></span>
+                            </div>
+
+                            <div className="block-collapse__bottom">
+                                <div className="block-checkbox" onClick={() => this.setSort('asc')}>
+                                    <label className="label-checkbox" htmlFor="price-asc">
+                                        <input type="radio"
+                                               readOnly
+                                               checked={sort === 'asc'}/>
+                                        <span className="text">Сортировать от меньшей цены к большей</span>
+                                    </label>
+                                </div>
+                                <div className="block-checkbox" onClick={() => this.setSort('desc')}>
+                                    <label className="label-checkbox" htmlFor="price-desc">
+                                        <input type="radio"
+                                               readOnly
+                                               checked={sort === 'desc'}/>
+                                        <span className="text">Сортировать от большей цены к меньшей</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+
                     </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'operator' ? ' expanded ' : '')}>
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('operator')}>
-                            <h5>Туроператор</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setOperator(false)}>
-                                <label className="label-checkbox">
-                                    <input type="checkbox" readOnly checked={!onlyNTKOperator}/>
-                                    <span className="text">Все туроператоры</span>
-                                </label>
-                            </div>
-                            <div className="block-checkbox grey">
-                                <label className="label-checkbox">
-                                    <input type="checkbox" readOnly
-                                           onChange={() => this.setOperator(true)}
-                                           checked={onlyNTKOperator}
-                                    />
-                                    <span className="text">Только НТК Интурист</span>
-                                </label>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div
-                        className={"block-inline block-inline__collapse" + (expandedBlock == 'sorting' ? ' expanded ' : '')}>
-
-                        <div className="block-inline__collapse__top" onClick={() => this.filterBlockToggle('sorting')}>
-                            <h5>Сортировать по: цене</h5>
-                            <span className="icon-arrow-down"></span>
-                            <span className="icon-arrow-up"></span>
-                        </div>
-
-                        <div className="block-collapse__bottom">
-                            <div className="block-checkbox" onClick={() => this.setSort('asc')}>
-                                <label className="label-checkbox" htmlFor="price-asc">
-                                    <input type="radio"
-                                           readOnly
-                                           checked={sort === 'asc'}/>
-                                    <span className="text">Сортировать от меньшей цены к большей</span>
-                                </label>
-                            </div>
-                            <div className="block-checkbox" onClick={() => this.setSort('desc')}>
-                                <label className="label-checkbox" htmlFor="price-desc">
-                                    <input type="radio"
-                                           readOnly
-                                           checked={sort === 'desc'}/>
-                                    <span className="text">Сортировать от большей цены к меньшей</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-
-
-
-
-
-
                 </Scrollbars>
                 {filtersNum ?
                     <div className="block-inline block-clear-filters">
@@ -913,7 +916,7 @@ export default class SearchResultList extends Component {
 
         // поиск не запущен
 
-        if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country){
+        if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country) {
             return (
                 <div className="inner">
                     <div className="row">
@@ -1031,7 +1034,7 @@ export default class SearchResultList extends Component {
         //const searchLength = Object.keys(this.state.SEARCH).length;
         this.searchLength = search.length;
 
-        search = search.slice(0, 20*this.state.page);
+        search = search.slice(0, 20 * this.state.page);
 
         return (
             <div className="inner">
@@ -1092,7 +1095,7 @@ export default class SearchResultList extends Component {
                                         <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
                                             <span className="icon-arrow-bottom"></span>
                                         </div>
-                                    : ''}
+                                        : ''}
 
 
                                 </div>
@@ -1107,13 +1110,14 @@ export default class SearchResultList extends Component {
     }
 
 
-    renderSearchArea(search){
+    renderSearchArea(search) {
 
         const searchLength = Object.keys(this.state.SEARCH).length;
 
-        if(searchLength) return this.renderHotels(search);
-        if(!searchLength && !this.isAllXHRCompleted()) return <Loader/>;
-        if(!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return  <h2>Ничего не найдено</h2>;
+        if (searchLength) return this.renderHotels(search);
+        if (!searchLength && !this.isAllXHRCompleted()) return <Loader/>;
+        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Ничего не
+            найдено</h2>;
     }
 
 
@@ -1146,14 +1150,14 @@ export default class SearchResultList extends Component {
         this.map.entity.geoObjects.remove(this.map.polygon);
 
         /*
-        let dates = this.state.dates;
+         let dates = this.state.dates;
 
-        if(1 || this.state.isRender || this.state.coordinates.length){
+         if(1 || this.state.isRender || this.state.coordinates.length){
 
-            console.log('this.state.SEARCH:', Object.keys(this.state.SEARCH).length);
+         console.log('this.state.SEARCH:', Object.keys(this.state.SEARCH).length);
 
-            dates = this.fillDates(this.state.SEARCH, this.state.HOTELS_INFO, true)
-        }*/
+         dates = this.fillDates(this.state.SEARCH, this.state.HOTELS_INFO, true)
+         }*/
 
         if (this.state.coordinates.length) {
             this.setState({
@@ -1399,27 +1403,27 @@ export default class SearchResultList extends Component {
 
 
             /*
-            console.log('this.state.coordinates.length:', this.state.coordinates.length );
-            console.log('!this.state.coordinates.length:', !this.state.coordinates.length );
-            console.log('!!this.state.coordinates.length:', !!this.state.coordinates.length );
+             console.log('this.state.coordinates.length:', this.state.coordinates.length );
+             console.log('!this.state.coordinates.length:', !this.state.coordinates.length );
+             console.log('!!this.state.coordinates.length:', !!this.state.coordinates.length );
 
-            if(this.state.coordinates.length > 0){
-                console.log('set dates!!!!!!');
-                console.log('set dates!!!!!!');
-                let dates = this.fillDates(obSearch, this.state.HOTELS_INFO, true);
+             if(this.state.coordinates.length > 0){
+             console.log('set dates!!!!!!');
+             console.log('set dates!!!!!!');
+             let dates = this.fillDates(obSearch, this.state.HOTELS_INFO, true);
 
-                this.setState({
-                    fakeMapMarkers: Object.keys(this.map.markers).length,
-                    dates: dates,
-                });
-            }else{
-                console.log('set dates--------');
-                console.log('set dates--------');
-                this.setState({
-                    fakeMapMarkers: Object.keys(this.map.markers).length,
-                });
+             this.setState({
+             fakeMapMarkers: Object.keys(this.map.markers).length,
+             dates: dates,
+             });
+             }else{
+             console.log('set dates--------');
+             console.log('set dates--------');
+             this.setState({
+             fakeMapMarkers: Object.keys(this.map.markers).length,
+             });
 
-            }*/
+             }*/
 
 
             this.setState({
@@ -1633,7 +1637,7 @@ export default class SearchResultList extends Component {
 
     filterBlockToggle(blockId) {
 
-        if(this.state.filter.expandedBlock === blockId) {
+        if (this.state.filter.expandedBlock === blockId) {
             blockId = null;
         }
 
@@ -1652,8 +1656,8 @@ export default class SearchResultList extends Component {
     onWeekFilterClick(curDate) {
         let {priceFrom, priceTo} = this.state.dates[curDate];
 
-        priceFrom = Math.floor(priceFrom/1000)*1000;
-        priceTo = Math.ceil(priceTo/1000)*1000;
+        priceFrom = Math.floor(priceFrom / 1000) * 1000;
+        priceTo = Math.ceil(priceTo / 1000) * 1000;
 
         this.setState({
             curDate,
@@ -1680,7 +1684,7 @@ export default class SearchResultList extends Component {
         const scrollHeight = +scrollbars.getScrollHeight();
         const scrollTop = +scrollbars.getScrollTop();
 
-        const newVal = + (Math.round(scrollTop / this.cartHeight) * this.cartHeight + this.cartHeight);
+        const newVal = +(Math.round(scrollTop / this.cartHeight) * this.cartHeight + this.cartHeight);
 
         if (newVal < scrollHeight) {
             scrollbars.scrollTop(newVal);
@@ -1734,14 +1738,14 @@ export default class SearchResultList extends Component {
     }
 
 
-    renderFeedTypes(){
+    renderFeedTypes() {
         let allowedBoards = [];
         let arAllBoards = this.state.dates[this.state.curDate].arAllBoards;
         const {arBoards} = this.state.filter;
 
-        for (let key in this.FEED_TYPES){
+        for (let key in this.FEED_TYPES) {
 
-            if(_.intersection(arAllBoards, this.FEED_TYPES[key]).length){
+            if (_.intersection(arAllBoards, this.FEED_TYPES[key]).length) {
                 allowedBoards.push(key);
             }
         }
@@ -1763,14 +1767,14 @@ export default class SearchResultList extends Component {
     }
 
 
-    getStarsHtml(stars, starsInt, isMap){
+    getStarsHtml(stars, starsInt, isMap) {
         let starsHtml = '';
 
         if (starsInt > 0) {
 
-            if(isMap){
+            if (isMap) {
                 starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
-            }else{
+            } else {
                 starsHtml = <div className={`rating left -star-${starsInt}`}></div>;
             }
 
@@ -1778,9 +1782,9 @@ export default class SearchResultList extends Component {
             starsHtml = '';
         } else {
 
-            if(isMap){
+            if (isMap) {
                 starsHtml = ''
-            }else{
+            } else {
                 starsHtml = <div className="rating_litera left"> {stars} </div>
             }
         }
@@ -1789,14 +1793,14 @@ export default class SearchResultList extends Component {
     }
 
 
-    fillDates(obSearch = {}, hotelsInfo = {}, isSetEmpty = false){
+    fillDates(obSearch = {}, hotelsInfo = {}, isSetEmpty = false) {
 
         let dates = Object.assign({}, this.state.dates);
         let priceMin = this.state.filter.priceFrom;
         let priceMax = 0;
 
 
-        if(isSetEmpty){
+        if (isSetEmpty) {
 
             console.log('isSetEmpty', isSetEmpty);
             console.log('isSetEmpty', isSetEmpty);
@@ -1817,7 +1821,6 @@ export default class SearchResultList extends Component {
         for (let key in obSearch) {
 
 
-
             const tourDate = obSearch[key].HotelLoadDate;
             const hotelInfo = hotelsInfo[obSearch[key].HOTEL_INFO_ID];
 
@@ -1825,7 +1828,7 @@ export default class SearchResultList extends Component {
             if (obSearch[key].Price > priceMax) priceMax = obSearch[key].Price;
 
 
-            if(dates[tourDate]){
+            if (dates[tourDate]) {
 
                 if (!dates[tourDate].priceMin || dates[tourDate].priceMin > obSearch[key].Price) {
                     dates[tourDate].priceMin = obSearch[key].Price;
@@ -1841,7 +1844,7 @@ export default class SearchResultList extends Component {
                     dates[tourDate].arAllBoards = [...dates[tourDate].arAllBoards, ...obSearch[key].Board];
                 }
 
-                if(hotelInfo.LOCATION[1]){
+                if (hotelInfo.LOCATION[1]) {
                     dates[tourDate].arAllRegions.push(hotelInfo.LOCATION[1]);
                 }
 
