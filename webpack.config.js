@@ -2,6 +2,16 @@
 var webpack = require("webpack");
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+var plugins = [];
+
+if(NODE_ENV != 'development'){
+    plugins.push(new webpack.optimize.UglifyJsPlugin({
+        compress: {
+            warnings: false
+        },
+        sourceMap: false,
+    }));
+}
 
 module.exports = {
     entry: {
@@ -13,16 +23,7 @@ module.exports = {
         publicPath: "/bundle/",
     },
     watch: NODE_ENV == 'development',
-    plugins: [
-/*
-        new webpack.optimize.UglifyJsPlugin({
-            compress: {
-                warnings: false
-            },
-            sourceMap: false,
-        })
-*/
-    ],
+    plugins: plugins,
     module: {
         loaders: [{
             exclude: /node_modules/,
