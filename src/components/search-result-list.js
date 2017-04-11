@@ -980,9 +980,7 @@ export default class SearchResultList extends Component {
                     <div className="col__left -col-60 content-region-left">
                         <h2>
                             {this.searchLength ? `Поиск тура: найдено предложений ${this.searchLength}` : ''}
-                            {this.searchLength && !this.isAllXHRCompleted() && (!this.state.isLLCompleted || !this.state.isNtkCompleted) ?
-                                <LoaderMini />
-                                : '' }
+                            {this.searchLength && !this.isLoadingCompleted() ? <LoaderMini /> : '' }
                         </h2>
                     </div>
                 </div>
@@ -1893,7 +1891,6 @@ export default class SearchResultList extends Component {
             if (filter.sort == 'desc') return j.Price - i.Price;
         });
 
-
         console.timeEnd("sort by price");
 
         this.renderMapPoints(search);
@@ -1901,5 +1898,15 @@ export default class SearchResultList extends Component {
         return search;
     }
 
+    isLoadingCompleted(){
 
+        return (
+            this.state.chkLTResNum >= this.LLMaxChkNum &&
+            this.state.isLLCompleted &&
+            this.state.isNtkCompleted >=0 &&
+            this.isAllXHRCompleted()
+        )
+
+        return
+    }
 }
