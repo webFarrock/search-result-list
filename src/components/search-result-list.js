@@ -614,13 +614,20 @@ export default class SearchResultList extends Component {
         if (!Object.keys(this.state.SEARCH).length) return;
 
 
-        const {filter, curDate, dates} = this.state;
+        const {filter, curDate, dates, coordinates} = this.state;
 
         const {priceMin, priceMax} = dates[curDate];
 
 
-        let filterHeaderCls = ' tour-addit__filter__top ';
-        if (filter.active) filterHeaderCls += ' active ';
+        let filterHeaderCls = ' tour-addit__filter__top';
+        let filterHeaderTitle = '';
+
+        if(coordinates.length){
+            filterHeaderCls += ' -disabled ';
+            filterHeaderTitle = 'Чтобы воспользоваться фильтром уберите обводку на карте';
+        }else if (filter.active) {
+            filterHeaderCls += ' active ';
+        }
 
         let filtersNum = this.getFiltersNum();
 
@@ -631,7 +638,10 @@ export default class SearchResultList extends Component {
                     {(priceMin, priceMax) ?
                         <div className="region-right col__left -col-35">
                             <div className="tour-addit__filter">
-                                <div className={filterHeaderCls} onClick={this.filterToggle}>
+                                <div className={filterHeaderCls}
+                                     onClick={this.filterToggle}
+                                     title={filterHeaderTitle}
+                                >
                                     {filter.active ?
                                         <div className="tour-addit__filter__top__inner filter-active">
                                             <span className="icon-tube"></span>
@@ -937,7 +947,7 @@ export default class SearchResultList extends Component {
         const tourSearchMap = this.state.isMapWide ? 'col__right tour-search__map' : 'col__right tour-search__map small';
         const canvasCls = this.state.isRender ? 'canvas-opened' : 'canvas-closed';
 
-        const {filter} = this.state;
+
 
         let renderButtonCaption = 'Обвести';
 
@@ -950,88 +960,15 @@ export default class SearchResultList extends Component {
 
         const tourSearchResult = this.state.isMapWide ? 'col__middle tour-search__results' : 'col__middle tour-search__results wide';
 
-        let search = Object.values(this.state.SEARCH);
-
-        // фильтро по обводке
-        if (this.state.coordinates.length && this.state.markers) {
-            console.time("фильтро по обводке time");
-            search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
-            console.timeEnd("фильтро по обводке time");
-        }
-
-        console.time("curDate filter time");
-        search = search.filter(i => (i.HotelLoadDate === this.state.curDate));
-
-        console.timeEnd("curDate filter time");
-
-        console.time("price filter time");
-        search = search.filter(i => (i.Price >= filter.priceFrom && i.Price <= filter.priceTo));
-        console.timeEnd("price filter time");
-
-
-        // ФИЛЬТР ПО РЕГИОНАМ
-        if (filter.arRegions.length) {
-            search = search.filter(i => {
-                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
-                return hotelInfo && hotelInfo.LOCATION[1] && -1 !== filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
-            });
-        }
-
-        // фильтр по типу питания
-        if (filter.arBoards.length) {
-            search = search.filter(hotel => filter.arBoards.some(boardName => _.intersection(hotel.Board, this.FEED_TYPES[boardName]).length));
-        }
-
-        if (filter.onlyNTKOperator) {
-            search = search.filter(i => {
-                return i.ntk;
-            });
-        }
-
-
-        console.time("stars filter time");
-        if (filter.starsFrom > 0) {
-            search = search.filter(i => {
-                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
-                return hotelInfo && hotelInfo.STARS_INT && hotelInfo.STARS_INT >= filter.starsFrom;
-            });
-        }
-        console.timeEnd("stars filter time");
-
-        console.time('services filter time');
-        if (filter.arServices.length) {
-            search = search.filter(i => {
-                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
-
-                if (hotelInfo && hotelInfo.arPreparedAttrs) {
-                    const hotelAttrs = Object.keys(hotelInfo.arPreparedAttrs);
-                    return filter.arServices.every((i) => -1 !== hotelAttrs.indexOf(i));
-                }
-
-                return false;
-            });
-        }
-        console.timeEnd('services filter time');
-
-
-        console.time("sort by price");
-        search = search.sort((i, j) => {
-            if (filter.sort == 'asc') return i.Price - j.Price;
-            if (filter.sort == 'desc') return j.Price - i.Price;
-        });
-        console.timeEnd("sort by price");
-
+        let search = this.getSearchSlice();
 
         // отрисовка точек только после всех фильтров
         if (!this.state.isRender) {
             this.renderMapPoints(search);
-
-
         }
 
         console.timeEnd("Pre render ");
 
-        //const searchLength = Object.keys(this.state.SEARCH).length;
         this.searchLength = search.length;
 
         search = search.slice(0, 20 * this.state.page);
@@ -1338,9 +1275,7 @@ export default class SearchResultList extends Component {
 
         let merkersKeys = Object.keys(this.map.markers);
 
-        let diff = _.difference(merkersKeys, this.map.markers2add);
-
-
+        // если есть не отрисованные или лишние маркеры - то нужна перерисовка
         if (this.map.markers2add.length !== merkersKeys.length || !this.map.markers2add.every(i => this.map.markers[i])) {
 
             if (this.map.collection) {
@@ -1426,9 +1361,14 @@ export default class SearchResultList extends Component {
              }*/
 
 
+            /*
             this.setState({
                 fakeMapMarkers: Object.keys(this.map.markers).length,
             });
+            */
+
+            this.forceUpdate();
+
 
             this.map.entity.geoObjects.add(this.map.collection);
 
@@ -1648,6 +1588,9 @@ export default class SearchResultList extends Component {
 
 
     filterToggle() {
+
+        if(this.state.coordinates.length) return;
+
         this.setState({
             filter: Object.assign({}, this.state.filter, {active: !this.state.filter.active})
         });
@@ -1802,12 +1745,6 @@ export default class SearchResultList extends Component {
 
         if (isSetEmpty) {
 
-            console.log('isSetEmpty', isSetEmpty);
-            console.log('isSetEmpty', isSetEmpty);
-            console.log('isSetEmpty', isSetEmpty);
-            console.log('isSetEmpty', isSetEmpty);
-            console.log('isSetEmpty', isSetEmpty);
-
             for (let key in dates) {
                 dates[key].priceMin = priceMin;
                 dates[key].priceFrom = priceMin;
@@ -1879,5 +1816,90 @@ export default class SearchResultList extends Component {
 
         return dates;
     }
+
+
+
+    getSearchSlice(){
+
+        const {filter} = this.state;
+
+        let search = Object.values(this.state.SEARCH);
+
+        // фильтро по обводке
+        if (this.state.coordinates.length && this.state.markers) {
+            console.time("фильтро по обводке time");
+            search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
+            console.timeEnd("фильтро по обводке time");
+        }
+
+        console.time("curDate filter time");
+        search = search.filter(i => (i.HotelLoadDate === this.state.curDate));
+
+        console.timeEnd("curDate filter time");
+
+        console.time("price filter time");
+        search = search.filter(i => (i.Price >= filter.priceFrom && i.Price <= filter.priceTo));
+        console.timeEnd("price filter time");
+
+
+        // ФИЛЬТР ПО РЕГИОНАМ
+        if (filter.arRegions.length) {
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+                return hotelInfo && hotelInfo.LOCATION[1] && -1 !== filter.arRegions.indexOf(hotelInfo.LOCATION[1]);
+            });
+        }
+
+        // фильтр по типу питания
+        if (filter.arBoards.length) {
+            search = search.filter(hotel => filter.arBoards.some(boardName => _.intersection(hotel.Board, this.FEED_TYPES[boardName]).length));
+        }
+
+        if (filter.onlyNTKOperator) {
+            search = search.filter(i => {
+                return i.ntk;
+            });
+        }
+
+
+        console.time("stars filter time");
+        if (filter.starsFrom > 0) {
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+                return hotelInfo && hotelInfo.STARS_INT && hotelInfo.STARS_INT >= filter.starsFrom;
+            });
+        }
+        console.timeEnd("stars filter time");
+
+        console.time('services filter time');
+        if (filter.arServices.length) {
+            search = search.filter(i => {
+                const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
+
+                if (hotelInfo && hotelInfo.arPreparedAttrs) {
+                    const hotelAttrs = Object.keys(hotelInfo.arPreparedAttrs);
+                    return filter.arServices.every((i) => -1 !== hotelAttrs.indexOf(i));
+                }
+
+                return false;
+            });
+        }
+        console.timeEnd('services filter time');
+
+
+        console.time("sort by price");
+        search = search.sort((i, j) => {
+            if (filter.sort == 'asc') return i.Price - j.Price;
+            if (filter.sort == 'desc') return j.Price - i.Price;
+        });
+
+
+        console.timeEnd("sort by price");
+
+        this.renderMapPoints(search);
+
+        return search;
+    }
+
 
 }

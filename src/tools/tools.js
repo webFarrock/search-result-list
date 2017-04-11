@@ -426,7 +426,9 @@ export let Render = {
 
             this.reactApp.map.entity.geoObjects.add(this.reactApp.map.polygon);
 
-            console.log('coordinates: ', this.coordinates);
+            //console.log('coordinates: ', this.coordinates);
+
+            // тут добавить все точки ,, 
 
             this.reactApp.setState({
                 coordinates: this.coordinates,
