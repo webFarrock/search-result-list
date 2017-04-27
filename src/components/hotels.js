@@ -70,8 +70,7 @@ export default (props) => {
 
                         <a href={hotelInfo.DETAIL_LINK} className="button buy">
                                 <span className="buy-wrapper">
-                                    <span className="price"><i>от</i> {priceForPrint} <span
-                                        className="rub">Р</span></span>
+                                    <span className="price"><i>от</i> {priceForPrint} <span className="rub">₽</span></span>
                                 </span>
                         </a>
                     </div>

@@ -12,6 +12,7 @@ export function naturalSort(array, extractor) {
     function makeSplitter(item) {
         return new Splitter(item);
     }
+
     // конструктор сплиттера
     //    сплиттер разделяет строку на фрагменты "ленивым" способом
     function Splitter(item) {
@@ -69,6 +70,7 @@ export function naturalSort(array, extractor) {
             this.value = isNumber ? Number(text) : text;
         }
     }
+
     // сравнение сплиттеров
     function compareSplitters(sp1, sp2) {
         var i = 0;
@@ -153,15 +155,31 @@ export function initWeekFilter() {
     try {
 
         const $tourWeekFilter = $('.tour-week__filter');
-        if($tourWeekFilter.length){
+        if ($tourWeekFilter.length) {
             $tourWeekFilter.slick({
-                slidesToShow: 8,
+                slidesToShow: 7,
                 centerMode: true,
                 centerPadding: 0,
                 slidesToScroll: 1,
                 focusOnSelect: true,
-                initialSlide: 3,
-                responsive: [
+                responsive: [{
+                    breakpoint: 1700,
+                    settings: {
+                        slidesToShow: 5
+                    }
+                    },
+                    {
+                        breakpoint: 1279,
+                        settings: {
+                            slidesToShow: 7
+                        }
+                    },
+                    {
+                        breakpoint: 1024,
+                        settings: {
+                            slidesToShow: 5
+                        }
+                    },
                     {
                         breakpoint: 760,
                         settings: {
@@ -186,7 +204,7 @@ export function initWeekFilter() {
 
     } catch (e) {
 
-       // console.log('initWeekFilter error', e);
+        // console.log('initWeekFilter error', e);
 
     }
 
@@ -300,9 +318,9 @@ export function initSliderStars(reactApp = null) {
                 value: from,
                 step: step,
                 change: (event, ui) => {
-                    if(!reactApp) return;
+                    if (!reactApp) return;
 
-                    if(ui.value !== reactApp.state.filter.starsFrom){
+                    if (ui.value !== reactApp.state.filter.starsFrom) {
                         reactApp.setState({
                             filter: Object.assign({}, reactApp.state.filter, {
                                 starsFrom: ui.value

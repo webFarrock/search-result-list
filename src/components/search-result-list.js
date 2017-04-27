@@ -46,7 +46,7 @@ export default class SearchResultList extends Component {
         this.itemsPerPage = 20;
 
 
-        this.mapZoom = 7;
+        this.mapZoom = 4;
         this.mapCenter = [55.031284, 44.459611];
         this.mapMarker = '/local/tpl/dist/static/i/icon-map.png';
         this.mapMarkerHover = '/local/tpl/dist/static/i/icon-map-orange.png';
@@ -319,6 +319,22 @@ export default class SearchResultList extends Component {
             });
         }
 
+
+        this.updAddFilterScroll();
+        $(window).on('resize', () => {
+           this.updAddFilterScroll();
+        });
+
+
+    }
+
+    updAddFilterScroll(){
+        if (($(window).height() < 750) && ($(window).width() >= 1280)) {
+            var wH = $(window).height();
+            var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
+            $('.tour-addit__filter__dropdown').addClass('scroll-content');
+            $('.tour-addit__filter__dropdown').height(wH - fH);
+        }
     }
 
     getNtkHotelList() {
@@ -448,10 +464,7 @@ export default class SearchResultList extends Component {
         this.getNtkHotelList();
         this.getLTHotelList();
 
-        if (!this.NTK_API_IN.Destination && !this.LL_API_IN.to_country) {
-            $('.tour-filter__toggle').addClass('open');
-            $('.tour-filter.main-filter').addClass('active');
-        }
+        this.updAddFilterScroll();
 
     }
 
@@ -522,8 +535,7 @@ export default class SearchResultList extends Component {
 
                             <a href={hotelInfo.DETAIL_LINK} className="button buy">
                                 <span className="buy-wrapper">
-                                    <span className="price"><i>от</i> {priceForPrint} <span
-                                        className="rub">Р</span></span>
+                                    <span className="price"><i>от</i> {priceForPrint} <span className="rub">₽</span></span>
                                 </span>
                             </a>
                         </div>
@@ -531,6 +543,7 @@ export default class SearchResultList extends Component {
                 </li>
             );
         });
+
 
         return (
             <ul className="list -inline tour-search__results__list scroll-content">
@@ -621,15 +634,14 @@ export default class SearchResultList extends Component {
 
         let filterHeaderCls = ' tour-addit__filter__top';
         let filterHeaderTitle = '';
+        let filtersNum = this.getFiltersNum();
 
         if(coordinates.length){
             filterHeaderCls += ' -disabled ';
             filterHeaderTitle = 'Чтобы воспользоваться фильтром уберите обводку на карте';
-        }else if (filter.active) {
+        }else if (filter.active || filtersNum > 0) {
             filterHeaderCls += ' active ';
         }
-
-        let filtersNum = this.getFiltersNum();
 
         return (
             <div className="tour-filter__wrap tour-filter__wrap__bottom">
@@ -655,6 +667,19 @@ export default class SearchResultList extends Component {
                                             <span className="icon-close"></span>
                                         </div>
                                         :
+                                        filtersNum > 0 ?
+                                            <div className="tour-addit__filter__top__inner filter-active">
+                                                <span className="icon-tube"></span>
+                                                <span className="center">
+                                                <span className="text">Выбрано фильтров: {filtersNum}</span>
+                                                    {filtersNum ?
+                                                        <a className="clear-filters"
+                                                           onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
+                                                        : ''}
+                                            </span>
+                                                <span className="icon-close"></span>
+                                            </div>
+                                            :
                                         <div className="tour-addit__filter__top__inner filter-default">
                                             <span className="icon-tube"></span>
                                             <span className="text">Дополнительные фильтры</span>
@@ -718,18 +743,18 @@ export default class SearchResultList extends Component {
 
         let filtersNum = this.getFiltersNum();
 
-        console.log('!!!!!!!!!!!!!!!!!');
+
 
         return (
             <div className="tour-addit__filter__dropdown">
-                <Scrollbars
+                {/*<Scrollbars
                     ref="scrollbarsFilter"
                     autoHeight
                     autoHeightMin={600}
                     className="tour-addit__filter__dropdown__inner_wrapper"
 
 
-                >
+                >*/}
 
                     <div className="tour-addit__filter__dropdown__inner">
 
@@ -739,12 +764,12 @@ export default class SearchResultList extends Component {
                                 <span className="first">
                                     <span className="pre-text">от</span>
                                     <span className="js-sider-range-text-from-1"></span>
-                                    <span className="rub">P</span>
+                                    <span className="rub">₽</span>
                                 </span>
                                 <span className="last">
                                     <span className="pre-text">до</span>
                                     <span className="js-sider-range-text-to-1"></span>
-                                    <span className="rub">P</span>
+                                    <span className="rub">₽</span>
                                 </span>
                             </div>
                             <div className="slider-range" data-index="1" data-min={filter.priceMin}
@@ -911,7 +936,7 @@ export default class SearchResultList extends Component {
 
 
                     </div>
-                </Scrollbars>
+                {/*</Scrollbars>*/}  
                 {filtersNum ?
                     <div className="block-inline block-clear-filters">
                         <a className="clear-filters" onClick={(e) => this.onClickFilterClear(e)}>Очистить фильтры</a>
@@ -972,7 +997,7 @@ export default class SearchResultList extends Component {
         this.searchLength = search.length;
 
         search = search.slice(0, 20 * this.state.page);
-
+        console.log('Object.keys(this.state.SEARCH).length: ', Object.keys(this.state.SEARCH).length);
         return (
             <div className="inner">
                 {this.renderFilter()}
@@ -990,50 +1015,51 @@ export default class SearchResultList extends Component {
 
                             <div className="row tour-search">
 
-                                <div className={tourSearchMap}>
-                                    <div className="tour-search__map__wrap">
-                                        <div id="map">
-                                            <canvas
-                                                id="canvas-on-map"
-                                                onMouseMove={this.onCanvasMouseMove}
-                                                onMouseDown={this.onCanvasMouseDown}
-                                                onMouseUp={this.onCanvasMouseUp}
-                                                onMouseOut={this.onCanvasMouseOut}
-                                                onTouchStart={this.onCanvasTouchStart}
-                                                onTouchMove={this.onCanvasTouchMove}
-                                                onTouchEnd={this.onCanvasTouchEnd}
-                                                className={canvasCls}
-                                                ref="canvas"
-                                            ></canvas>
+                                {!Object.keys(this.state.SEARCH).length && !this.isAllXHRCompleted() ? <Loader />
+                                    :[
+                                        <div key="map" className={tourSearchMap}>
+                                            <div className="tour-search__map__wrap">
+                                                <div id="map">
+                                                    <canvas
+                                                        id="canvas-on-map"
+                                                        onMouseMove={this.onCanvasMouseMove}
+                                                        onMouseDown={this.onCanvasMouseDown}
+                                                        onMouseUp={this.onCanvasMouseUp}
+                                                        onMouseOut={this.onCanvasMouseOut}
+                                                        onTouchStart={this.onCanvasTouchStart}
+                                                        onTouchMove={this.onCanvasTouchMove}
+                                                        onTouchEnd={this.onCanvasTouchEnd}
+                                                        className={canvasCls}
+                                                        ref="canvas"
+                                                    ></canvas>
+                                                </div>
+
+                                                {!this.state.yandexMapInited ? '' :
+                                                    <div className={mapTriggerWpCls}
+                                                         onClick={this.mapTrigger}>
+                                                        <span className={mapTriggerIcon}></span>
+                                                        <span className="label">{mapTriggerLabel}</span>
+                                                    </div>}
+                                                {!this.state.yandexMapInited ? '' : <div
+                                                    onClick={this.renderButtonClick}
+                                                    className="tour-search__map__draw"><span>{renderButtonCaption}</span>
+                                                </div>}
+
+                                            </div>
+                                        </div>,
+
+                                        <div key="list" className={tourSearchResult}>
+                                            {this.renderSearchArea(search)}
+                                            {search.length ?
+                                                <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
+                                                <span className="icon-arrow-bottom"></span>
+                                                </div>
+                                            : ''}
+
                                         </div>
+                                    ]
+                                }
 
-                                        {!this.state.yandexMapInited ? '' :
-                                            <div className={mapTriggerWpCls}
-                                                 onClick={this.mapTrigger}>
-                                                <span className={mapTriggerIcon}></span>
-                                                <span className="label">{mapTriggerLabel}</span>
-                                            </div>}
-                                        {!this.state.yandexMapInited ? '' : <div
-                                            onClick={this.renderButtonClick}
-                                            className="tour-search__map__draw"><span>{renderButtonCaption}</span>
-                                        </div>}
-
-                                    </div>
-                                </div>
-
-                                <div className={tourSearchResult}>
-
-
-                                    {this.renderSearchArea(search)}
-
-                                    {search.length ?
-                                        <div className="scroll-bottom" onClick={this.onScrollButtonClick}>
-                                            <span className="icon-arrow-bottom"></span>
-                                        </div>
-                                        : ''}
-
-
-                                </div>
                             </div>
 
                         </div>
@@ -1236,7 +1262,7 @@ export default class SearchResultList extends Component {
 
         var BalloonContentLayout = ymaps.templateLayoutFactory.createClass(`
             <div class="balloon__content">
-                <div class="balloon-price">Цена от:  {{properties.price}} <span class="rub">Р</span></div>
+                <div class="balloon-price">Цена от:  {{properties.price}} <span className="rub">₽</span></div>
                 <div class="balloon-destination">{{properties.descr}}</div>
                 <div class="icon-icon-location-blue"></div>
             </div>`, {});
@@ -1796,7 +1822,7 @@ export default class SearchResultList extends Component {
                 if (dates[key].priceMin) {
                     printPriceMinTopSlider = (
                         <div className="tour-week__filter__item__price">от
-                            <span>{numberFormat(dates[key].priceMin, 0, '', ' ')} р</span></div>
+                            <span>{numberFormat(dates[key].priceMin, 0, '', ' ')} <span className="rub">₽</span></span></div>
                     )
                 } else {
                     printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
