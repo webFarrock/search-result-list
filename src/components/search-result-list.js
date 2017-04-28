@@ -325,6 +325,14 @@ export default class SearchResultList extends Component {
            this.updAddFilterScroll();
         });
 
+        //--------------------------------СКРИПТ ДОБАВЛЕНИЯ СКРОЛЛА В ФИЛЬТР ДОПОЛНИТЕЛЬНАЯ ФИЛЬТРАЦИЯ----------------
+        if (($(window).height() < 750) && ($(window).width() >= 1280)) {
+            var wH = $(window).height();
+            var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
+            $('.tour-addit__filter__dropdown').addClass('scroll-content');
+            $('.tour-addit__filter__dropdown').height(wH - fH);
+        }
+
 
     }
 
@@ -516,41 +524,41 @@ export default class SearchResultList extends Component {
                                 </Slider>
                                 : ''}
                         </div>
-                        <div className="col__middle hotel-card__content">
-                            {this.getStarsHtml(hotelInfo.STARS, hotelInfo.STARS_INT)}
-                            <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
-                                  onClick={() => this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
-                            ></span>
-                            <span className="icon-newsletter right"
-                                  onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
-                            ></span>
+                        <a href={hotelInfo.DETAIL_LINK}>
+                            <div className="col__middle hotel-card__content">
+                                {this.getStarsHtml(hotelInfo.STARS, hotelInfo.STARS_INT)}
+                                <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
+                                      onClick={() => this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
+                                ></span>
+                                <span className="icon-newsletter right"
+                                      onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
+                                ></span>
 
-                            <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
-                            <div
-                                className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
+                                <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
+                                <div className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
 
-                            {this.renderAttrs(hotelInfo.arPreparedAttrs)}
+                                {this.renderAttrs(hotelInfo.arPreparedAttrs)}
 
-                            <div className="hotel-card__service">{hotel.minServices}</div>
+                                <div className="hotel-card__service">{hotel.minServices}</div>
 
-                            <a href={hotelInfo.DETAIL_LINK} className="button buy">
-                                <span className="buy-wrapper">
-                                    <span className="price"><i>от</i> {priceForPrint} <span className="rub">₽</span></span>
+                                <span className="button buy">
+                                    <span className="buy-wrapper">
+                                        <span className="price"><i>от</i> {priceForPrint} <span className="rub">₽</span></span>
+                                    </span>
                                 </span>
-                            </a>
-                        </div>
+                            </div>
+                        </a>
                     </div>
                 </li>
             );
         });
-
 
         return (
             <ul className="list -inline tour-search__results__list scroll-content">
                 <Scrollbars
                     ref="scrollbars"
                     autoHeight
-                    autoHeightMin={600}
+                    autoHeightMin={$(".tour-search__map").height() - 30}
 
                     onScrollFrame={this.handleScrollFrame}
                 >
@@ -648,7 +656,7 @@ export default class SearchResultList extends Component {
                 <div className="row inner">
                     {this.renderDates()}
                     {(priceMin, priceMax) ?
-                        <div className="region-right col__left -col-35">
+                        <div className="region-right col__left -col-40">
                             <div className="tour-addit__filter">
                                 <div className={filterHeaderCls}
                                      onClick={this.filterToggle}
@@ -688,6 +696,10 @@ export default class SearchResultList extends Component {
                                     }
                                 </div>
                                 {this.renderFilterBody()}
+                            </div>
+                            <div className="tour-search__map__hide expand">
+                                <span className="icon-arrow-up"></span>
+                                <span className="label">Показать на карте</span>
                             </div>
                         </div>
                         : ''}

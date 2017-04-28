@@ -167,7 +167,7 @@ export function initWeekFilter() {
                     settings: {
                         slidesToShow: 5
                     }
-                    },
+                },
                     {
                         breakpoint: 1279,
                         settings: {
