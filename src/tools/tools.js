@@ -162,6 +162,7 @@ export function initWeekFilter() {
                 centerPadding: 0,
                 slidesToScroll: 1,
                 focusOnSelect: true,
+                initialSlide: 3,
                 responsive: [{
                     breakpoint: 1700,
                     settings: {
