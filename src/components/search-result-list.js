@@ -37,7 +37,7 @@ export default class SearchResultList extends Component {
         this.selectedHotels = window.RuInturistStore.initForm.hotel || [];
         //this.selectedHotels = [];
 
-        this.LLMaxChkNum = 3; // максимальное количество запросов к ЛЛ
+        this.LLMaxChkNum = 7; // максимальное количество запросов к ЛЛ
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
         this.itemsPerPage = 25; // кол-во элементов на стр
         this.LLCompletedRequests = {};

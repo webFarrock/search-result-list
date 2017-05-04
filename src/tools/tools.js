@@ -157,7 +157,7 @@ export function initWeekFilter() {
         const $tourWeekFilter = $('.tour-week__filter');
         if ($tourWeekFilter.length) {
             $tourWeekFilter.slick({
-                slidesToShow: 7,
+                slidesToShow: 8,
                 centerMode: true,
                 centerPadding: 0,
                 slidesToScroll: 1,
@@ -172,7 +172,7 @@ export function initWeekFilter() {
                     {
                         breakpoint: 1279,
                         settings: {
-                            slidesToShow: 7
+                            slidesToShow: 8
                         }
                     },
                     {
