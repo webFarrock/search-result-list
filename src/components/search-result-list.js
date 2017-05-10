@@ -23,7 +23,6 @@ export default class SearchResultList extends Component {
         console.log('SearchResultList constructor');
         super(props);
 
-
         window.reactApp = this;
 
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
@@ -279,6 +278,7 @@ export default class SearchResultList extends Component {
                         let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
 
                         if (!hotelInfo) {
+                            console.log('delkeyll: ', key);
                             delete data.SEARCH[key];
                             continue;
                         }
@@ -287,6 +287,13 @@ export default class SearchResultList extends Component {
                         data.SEARCH[key].Price = +data.SEARCH[key].Price
 
                     }
+
+
+                    console.log('=============================================');
+                    console.log('this.state.SEARCH.length: ', Object.keys(this.state.SEARCH).length);
+                    console.log('data.SEARCH.length: ', Object.keys(data.SEARCH).length);
+                    console.log('data.SEARCH: ', data.SEARCH);
+                    console.log('=============================================');
 
 
                     let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
@@ -325,23 +332,15 @@ export default class SearchResultList extends Component {
         $(window).on('resize', () => {
             initWeekFilter();
             this.updAddFilterScroll();
-        });
 
+            this.map.entity.container.fitToViewport();
 
-        $('.tour-filter__wrap .tour-search__map__hide').click(function () {
-            if (!$('.tour-search__map').hasClass('small')) {
-                $(this).addClass('expand');
-                $('.tour-search__map').addClass('small');
-                $('.tour-search__results').addClass('wide');
-                $(this).find('span.label').text('Показать карту');
-            } else {
-                $(this).removeClass('expand');
-                $('.tour-search__map').removeClass('small');
-                if ($('.tour-search__results').hasClass('wide')) {
-                    $('.tour-search__results').removeClass('wide');
-                }
-                $(this).find('span.label').text('Свернуть карту');
+            const bounds = this.map.entity.geoObjects.getBounds();
+
+            if (bounds) {
+                this.map.entity.setBounds(bounds, {checkZoomRange: true});
             }
+
         });
 
 
@@ -426,6 +425,7 @@ export default class SearchResultList extends Component {
                         for (let key in data.SEARCH) {
                             let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
                             if (!hotelInfo) {
+                                console.log('delkeyntk: ', key);
                                 delete data.SEARCH[key];
                                 continue;
                             }
@@ -447,6 +447,8 @@ export default class SearchResultList extends Component {
                             obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
                         }
 
+
+                        
                         let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
                         this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV, true);
@@ -573,15 +575,26 @@ export default class SearchResultList extends Component {
                                 </Slider>
                                 : ''}
                         </div>
+                        <div className="hotel-card__icon-links">
+                            <a className={"icon-addfavorite right"  + (isInFav ? ' active ' : ' ') }
+                               href=""
+                               onClick={(e) => {
+                                   e.preventDefault();
+                                   this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK);
+                               }}
+                            ></a>
+                            <a className="icon-send right"
+                               href=""
+                               onClick={(e) => {
+                                   e.preventDefault();
+                                   sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK);
+                               }}
+                            >
+                            </a>
+                        </div>
                         <a href={hotelInfo.DETAIL_LINK}>
                             <div className="col__middle hotel-card__content">
                                 {this.getStarsHtml(hotelInfo.STARS, hotelInfo.STARS_INT)}
-                                <span className={"icon-addfavorite right" + (isInFav ? ' active ' : ' ')}
-                                      onClick={() => this.addToFav(hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
-                                ></span>
-                                <span className="icon-newsletter right"
-                                      onClick={(e) => sendToEmail(e.target, hotel.bxHotelId, hotelInfo.DETAIL_LINK)}
-                                ></span>
 
                                 <h5 className="hotel-card__title" title={hotelInfo.NAME}>{hotelInfo.NAME}</h5>
                                 <div className="hotel-card__location">{hotelInfo.LOCATION.join(', ')}</div>
@@ -700,6 +713,11 @@ export default class SearchResultList extends Component {
             filterHeaderCls += ' active ';
         }
 
+        let btnMapCls = ' tour-search__map__hide ';
+        if(!this.state.isMapWide){
+            btnMapCls += ' expand ';
+        }
+
         return (
             <div className="tour-filter__wrap tour-filter__wrap__bottom">
                 <div className="row inner">
@@ -748,7 +766,9 @@ export default class SearchResultList extends Component {
                                 {this.renderFilterBody()}
                             </div>
                             {!(this.searchLength && !this.isLoadingCompleted()) ?
-                                <div className="tour-search__map__hide expand">
+                                <div className={btnMapCls}
+                                    onClick={this.mapTrigger}
+                                >
                                     <span className="icon-arrow-up"></span>
                                     <span className="label">Показать на карте</span>
                                 </div> : ''}
@@ -1058,7 +1078,7 @@ export default class SearchResultList extends Component {
         this.searchLength = search.length;
 
         search = search.slice(0, 20 * this.state.page);
-        console.log('Object.keys(this.state.SEARCH).length: ', Object.keys(this.state.SEARCH).length);
+        //console.log('Object.keys(this.state.SEARCH).length: ', Object.keys(this.state.SEARCH).length);
         return (
             <div className="inner">
                 {this.renderFilter()}
@@ -1428,6 +1448,7 @@ export default class SearchResultList extends Component {
     }
 
     mapTrigger() {
+        console.log('!!!');
 
         this.setState({isMapWide: !this.state.isMapWide}, () => {
             if (this.map.entity) {
