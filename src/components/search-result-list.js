@@ -289,11 +289,11 @@ export default class SearchResultList extends Component {
                     }
 
 
-                    console.log('=============================================');
-                    console.log('this.state.SEARCH.length: ', Object.keys(this.state.SEARCH).length);
-                    console.log('data.SEARCH.length: ', Object.keys(data.SEARCH).length);
-                    console.log('data.SEARCH: ', data.SEARCH);
-                    console.log('=============================================');
+                    //console.log('=============================================');
+                    //console.log('this.state.SEARCH.length: ', Object.keys(this.state.SEARCH).length);
+                    //console.log('data.SEARCH.length: ', Object.keys(data.SEARCH).length);
+                    //console.log('data.SEARCH: ', data.SEARCH);
+                    //console.log('=============================================');
 
 
                     let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
@@ -328,64 +328,44 @@ export default class SearchResultList extends Component {
         }
 
 
-        this.updAddFilterScroll();
+
         $(window).on('resize', () => {
             initWeekFilter();
-            this.updAddFilterScroll();
+            //this.updAddFilterScroll();
 
-            this.map.entity.container.fitToViewport();
+            if(this.map.entity){
+                this.map.entity.container.fitToViewport();
 
-            const bounds = this.map.entity.geoObjects.getBounds();
+                const bounds = this.map.entity.geoObjects.getBounds();
 
-            if (bounds) {
-                this.map.entity.setBounds(bounds, {checkZoomRange: true});
+                if (bounds) {
+                    this.map.entity.setBounds(bounds, {checkZoomRange: true});
+                }
             }
 
         });
 
 
-        //--------------------------------СКРИПТ ДОБАВЛЕНИЯ СКРОЛЛА В ФИЛЬТР ДОПОЛНИТЕЛЬНАЯ ФИЛЬТРАЦИЯ----------------
-       try {
-
-
-
-            if (($(window).height() < 750) && ($(window).width() >= 1280)) {
-
-                var wH = $(window).height();
-                var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
-                $('.tour-addit__filter__dropdown').addClass('scroll-content');
-                $('.tour-addit__filter__dropdown').height(wH - fH);
-
-                var pane = $('.tour-addit__filter__dropdown.scroll-content');
-
-                pane.jScrollPane({
-                    autoReinitialise: true
-                });
-
-                var api = pane.data('jsp');
-                if ($(window).width() < 761) {
-                    api.destroy();
-                }
-            }
-
-
-        } catch (e) {
-
-        }
-
+        this.updAddFilterScroll();
 
     }
 
     updAddFilterScroll() {
         try {
-            if (($(window).height() < 750) && ($(window).width() >= 1280)) {
-                var wH = $(window).height();
-                var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
-                $('.tour-addit__filter__dropdown').addClass('scroll-content');
-                $('.tour-addit__filter__dropdown').height(wH - fH);
-            }
-        } catch (e) {
 
+            var wH = $(window).height();
+            var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
+            $('.tour-addit__filter__dropdown').height(wH - fH);
+
+            var pane = $('.tour-addit__filter__dropdown.scroll-content');
+            
+            pane.jScrollPane({});
+
+            $('.tour-addit__filter__dropdown').addClass('jspScrollable');
+
+
+        } catch (e) {
+            //console.log('fail updAddFilterScroll ', e);
         }
     }
 
@@ -615,12 +595,21 @@ export default class SearchResultList extends Component {
             );
         });
 
+
+        let minHeight = $(".tour-search__map").height()-30;
+        try{
+            var wH = $(window).height();
+            var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
+
+            minHeight = wH - fH - 100;
+        }catch(e){}
+
         return (
             <ul className="list -inline tour-search__results__list scroll-content">
                 <Scrollbars
                     ref="scrollbars"
                     autoHeight
-                    autoHeightMin={$(".tour-search__map").height() - 30}
+                    autoHeightMin={minHeight}
 
                     onScrollFrame={this.handleScrollFrame}
                 >
@@ -641,8 +630,7 @@ export default class SearchResultList extends Component {
         const newVal = +(Math.round(scrollTop / this.cartHeight) * this.cartHeight + this.cartHeight);
         const pagesTotal = Math.ceil(this.searchLength / this.itemsPerPage);
 
-
-        if ((newVal + this.cartHeight * 2) > scrollHeight) {
+        if ((newVal + this.cartHeight * 4 + 10) > scrollHeight) {
 
             if (this.state.page < pagesTotal) {
                 this.setState({page: this.state.page + 1});
@@ -702,7 +690,7 @@ export default class SearchResultList extends Component {
         const {priceMin, priceMax} = dates[curDate];
 
 
-        let filterHeaderCls = ' tour-addit__filter__top';
+        let filterHeaderCls = ' tour-addit__filter__top ';
         let filterHeaderTitle = '';
         let filtersNum = this.getFiltersNum();
 
@@ -828,7 +816,7 @@ export default class SearchResultList extends Component {
 
 
         return (
-            <div className="tour-addit__filter__dropdown">
+            <div className="tour-addit__filter__dropdown scroll-content jspScrollable">
                 {/*<Scrollbars
                  ref="scrollbarsFilter"
                  autoHeight
@@ -1782,9 +1770,9 @@ export default class SearchResultList extends Component {
         if (starsInt > 0) {
 
             if (isMap) {
-                starsHtml = '<div class="rating -star-' + starsInt + '"></div>';
+                starsHtml = '<div class="rating -star-' + starsInt + '">  <span class="icon-star star-1"></span> <span class="icon-star star-2"></span> <span class="icon-star star-3"></span> <span class="icon-star star-4"></span> <span class="icon-star star-5"></span></div>';
             } else {
-                starsHtml = <div className={`rating left -star-${starsInt}`}></div>;
+                starsHtml = <div className={`rating left -star-${starsInt}`}><span className="icon-star star-1"></span><span className="icon-star star-2"></span><span className="icon-star star-3"></span><span className="icon-star star-4"></span><span className="icon-star star-5"></span></div>;
             }
 
         } else if (!stars) {
@@ -1804,7 +1792,7 @@ export default class SearchResultList extends Component {
 
     fillDates(obSearch = {}, hotelsInfo = {}) {
 
-        console.log('filldates: ', obSearch);
+        //console.log('filldates: ', obSearch);
 
         let dates = Object.assign({}, this.state.dates);
         let priceMin = this.state.filter.priceFrom;
