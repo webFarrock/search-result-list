@@ -114,9 +114,15 @@ export default class SearchResultList extends Component {
             chkLTResNum: 0,
             arXHRs: [],
             isSearchWasStarted: false,
-            isLLCompleted: !!this.LL_API_IN,
             isNtkCompleted: Object.keys(this.NTK_PACk_TYPES).length * -1,
         };
+
+        if(this.LL_API_IN){
+            this.state.isLLCompleted = false;
+        }else{
+            this.state.isLLCompleted = true;
+            this.state.chkLTResNum = 777;
+        }
 
     }
 
