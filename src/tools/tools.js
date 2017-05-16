@@ -151,7 +151,7 @@ export function numberFormat(number, decimals, dec_point, thousands_sep) {	// Fo
 }
 
 
-export function initWeekFilter() {
+export function initWeekFilter(reactApp) {
     try {
 
         const $tourWeekFilter = $('.tour-week__filter');
@@ -200,6 +200,12 @@ export function initWeekFilter() {
                         }
                     }
                 ]
+            });
+
+
+            $tourWeekFilter.on('afterChange', function(event, slick, currentSlide, nextSlide){
+                let curDate = $tourWeekFilter.find('.tour-week__filter__item.slick-current .input_cur_date').val();
+                reactApp.onWeekFilterClick(curDate);
             });
         }
 

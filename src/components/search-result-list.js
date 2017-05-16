@@ -320,7 +320,7 @@ export default class SearchResultList extends Component {
     componentDidUpdate() {
         initSliderRange(this);
         initSliderStars(this);
-        initWeekFilter();
+        initWeekFilter(this);
 
 
         this.initMap();
@@ -336,7 +336,7 @@ export default class SearchResultList extends Component {
 
 
         $(window).on('resize', () => {
-            initWeekFilter();
+            initWeekFilter(this);
             //this.updAddFilterScroll();
 
             if(this.map.entity){
@@ -792,6 +792,7 @@ export default class SearchResultList extends Component {
                                 <div className="tour-week__filter__item__day">{date.dayOfWeek}</div>
                                 <div className="tour-week__filter__item__date">{date.dayAndMonth}</div>
                                 {date.printPriceMinTopSlider}
+                                <input type="hidden" className="input_cur_date" value={date.dateRaw}/>
                             </div>
                         )
                     })}
