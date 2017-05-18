@@ -196,10 +196,12 @@ export default class SearchResultList extends Component {
                 chkLTResNum: this.state.chkLTResNum + 1
             });
 
-            if (this.state.chkLTResNum < this.LLMaxChkNum) {
+            if (this.state.chkLTResNum <= this.LLMaxChkNum) {
                 setTimeout(() => {
                     this.chkLTResultStatus(data.request_id);
                 }, this.LLChkTimeOut);
+            }else{
+                this.setLLAsFinished();
             }
         }
 
@@ -708,8 +710,10 @@ export default class SearchResultList extends Component {
         }
 
         let btnMapCls = ' tour-search__map__hide ';
+        let btnMapLbl = 'Скрыть карту';
         if(!this.state.isMapWide){
             btnMapCls += ' expand ';
+            btnMapLbl = 'Показать на карте';
         }
 
         return (
@@ -759,12 +763,12 @@ export default class SearchResultList extends Component {
                                 </div>
                                 {this.renderFilterBody()}
                             </div>
-                            {!(this.searchLength && !this.isLoadingCompleted()) ?
+                            {1 || !(this.searchLength && !this.isLoadingCompleted()) ?
                                 <div className={btnMapCls}
                                     onClick={this.mapTrigger}
                                 >
                                     <span className="icon-arrow-up"></span>
-                                    <span className="label">Показать на карте</span>
+                                    <span className="label">{btnMapLbl}</span>
                                 </div> : ''}
                         </div>
                         : ''}
@@ -1658,6 +1662,7 @@ export default class SearchResultList extends Component {
     }
 
     onWeekFilterClick(curDate) {
+        return false;// временно отключаем
         let {priceFrom, priceTo} = this.state.dates[curDate];
 
         priceFrom = Math.floor(priceFrom / 1000) * 1000;
@@ -1866,7 +1871,8 @@ export default class SearchResultList extends Component {
                         </div>
                     )
                 } else {
-                    printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
+                    //printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
+                    printPriceMinTopSlider = '';
                 }
 
                 dates[key].printPriceMinTopSlider = printPriceMinTopSlider;
