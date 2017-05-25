@@ -161,7 +161,7 @@ export function initWeekFilter(reactApp) {
                 centerMode: true,
                 centerPadding: 0,
                 slidesToScroll: 1,
-                focusOnSelect: false, // todo true
+                focusOnSelect: true,
                 initialSlide: 3,
                 responsive: [{
                     breakpoint: 1700,

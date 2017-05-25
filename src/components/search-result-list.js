@@ -34,9 +34,10 @@ export default class SearchResultList extends Component {
         this.USER_FAV = this.USER_FAV.map(i => +i);
         this.FEED_TYPES = window.RuInturistStore.FEED_TYPES || [];
         this.selectedHotels = window.RuInturistStore.initForm.hotel || [];
+
         //this.selectedHotels = [];
 
-        this.LLMaxChkNum = 7; // максимальное количество запросов к ЛЛ
+        this.LLMaxChkNum = 7; // максимальное количество запросов к ЛЛ  
         this.LLChkTimeOut = 4 * 1000; // интервал проверки результатов ЛТ
         this.itemsPerPage = 25; // кол-во элементов на стр
         this.LLCompletedRequests = {};
@@ -51,6 +52,7 @@ export default class SearchResultList extends Component {
         this.mapMarkerHover = '/local/tpl/dist/static/i/icon-map-orange.png';
 
         this.arXHRs = [];
+        this.NTK_API_IN_ARRAY = this.prepareNtkApiInArray();
 
         this.mapTrigger = this.mapTrigger.bind(this);
         this.renderButtonClick = this.renderButtonClick.bind(this);
@@ -94,6 +96,7 @@ export default class SearchResultList extends Component {
 
 
         this.state = {
+            isForcedStop: false,
             page: 1,
             arXHR: [],
             isRender: false,
@@ -114,7 +117,9 @@ export default class SearchResultList extends Component {
             chkLTResNum: 0,
             arXHRs: [],
             isSearchWasStarted: false,
-            isNtkCompleted: Object.keys(this.NTK_PACk_TYPES).length * -1,
+            //isNtkCompleted: Object.keys(this.NTK_PACk_TYPES).length * -1,
+            isNtkCompleted: this.NTK_API_IN_ARRAY.length * -1,
+            isMobile: ($(window).width() <= 768) ? true : false,
         };
 
         if(this.LL_API_IN){
@@ -124,6 +129,43 @@ export default class SearchResultList extends Component {
             this.state.chkLTResNum = 777;
         }
 
+
+
+    }
+
+    prepareNtkApiInArray(){
+
+        let NTK_API_IN_ARRAY = [];
+        let datesArray = [];
+        if (this.NTK_API_IN.Destination) {
+            let dateFrom = window.RuInturistStore.initForm.dateFrom;
+            let dateFrom4Sub = window.RuInturistStore.initForm.dateFrom;
+            if (!dateFrom) return {};
+
+            let momentDate = moment(dateFrom, 'DD.MM.YYYY');
+            let momentDate4Sub = moment(dateFrom4Sub, 'DD.MM.YYYY');
+
+
+            datesArray.push(momentDate.format('YYYY-MM-DD'));
+
+            for (let i = 0; i <= 2; i++) {
+                datesArray.push(momentDate.add(1, 'day').format('YYYY-MM-DD'));
+                datesArray.push(momentDate4Sub.subtract(1, 'day').format('YYYY-MM-DD'));
+            }
+
+            //const dateANSI = date2add.format('');
+        }
+
+
+        datesArray.forEach(date => {
+            this.NTK_PACk_TYPES.forEach((pack) => {
+                NTK_API_IN_ARRAY.push({...this.NTK_API_IN, ...pack, ...{TourDate: date}});
+            });
+        });
+
+
+
+        return NTK_API_IN_ARRAY;
     }
 
     addToFav(hotelId, link) {
@@ -159,21 +201,24 @@ export default class SearchResultList extends Component {
                     ajax: 'Y',
                     dataType: 'json',
                     cache: false
-                }
-            }).done((data) => {
+                },
+                timeout: 10000,
+            }).always((data) => {
 
-                if (!data) {
+                try{
+                    if (!data) {
 
-                    this.setLLAsFinished();
-                } else {
-                    data = JSON.parse(data);
-
-                    if (data.success) {
-                        this.processLTHotelListResult(data);
-                    } else {
                         this.setLLAsFinished();
+                    } else {
+                        data = JSON.parse(data);
+
+                        if (data.success) {
+                            this.processLTHotelListResult(data);
+                        } else {
+                            this.setLLAsFinished();
+                        }
                     }
-                }
+                }catch(e){}
 
             });
 
@@ -192,9 +237,6 @@ export default class SearchResultList extends Component {
         }
 
         if (hasPreparingReq) {
-            this.setState({
-                chkLTResNum: this.state.chkLTResNum + 1
-            });
 
             if (this.state.chkLTResNum <= this.LLMaxChkNum) {
                 setTimeout(() => {
@@ -209,10 +251,12 @@ export default class SearchResultList extends Component {
             this.setLLAsFinished();
         }
 
+        this.setState({
+            chkLTResNum: this.state.chkLTResNum + 1
+        });
     }
 
     chkLTResultStatus(request_id) {
-        //?????? if (!this.state.isLLCompleted) return;
 
         var xhr = $.ajax({
             url: '/local/include/ajax/chk-lt-result.php',
@@ -221,13 +265,14 @@ export default class SearchResultList extends Component {
                 dataType: 'json',
                 cache: false
             },
-            beforeSend: () => {
-            },
-        }).done((data) => {
-            data = JSON.parse(data);
-            data.request_id = request_id;
+            timeout: 10000,
+        }).always((data) => {
+            try {
+                data = JSON.parse(data);
+                data.request_id = request_id;
 
-            this.processLTHotelListResult(data);
+                this.processLTHotelListResult(data);
+            }catch(e){}
         });
 
         this.arXHRsPush(xhr);
@@ -270,48 +315,41 @@ export default class SearchResultList extends Component {
                 dataType: 'json',
                 cache: false,
             },
-            beforeSend: () => {
-            },
-        }).done((data) => {
+            timeout: 10000,
+        }).always((data) => {
 
-            if (data) {
-                data = JSON.parse(data);
+            try{
+                if (data) {
+                    data = JSON.parse(data);
 
-                if (data.SEARCH instanceof Object) {
+                    if (data.SEARCH instanceof Object) {
 
-                    const minServices = 'перелет, проживание';
+                        const minServices = 'перелет, проживание';
 
-                    for (let key in data.SEARCH) {
+                        for (let key in data.SEARCH) {
 
-                        let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                            let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
 
-                        if (!hotelInfo) {
-                            console.log('delkeyll: ', key);
-                            delete data.SEARCH[key];
-                            continue;
+                            if (!hotelInfo) {
+                                //console.log('delkeyll: ', key);
+                                delete data.SEARCH[key];
+                                continue;
+                            }
+
+                            data.SEARCH[key].minServices = minServices;
+                            data.SEARCH[key].Price = +data.SEARCH[key].Price
+
                         }
 
-                        data.SEARCH[key].minServices = minServices;
-                        data.SEARCH[key].Price = +data.SEARCH[key].Price
+                        let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                        let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
+
+                        this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
 
                     }
 
-
-                    //console.log('=============================================');
-                    //console.log('this.state.SEARCH.length: ', Object.keys(this.state.SEARCH).length);
-                    //console.log('data.SEARCH.length: ', Object.keys(data.SEARCH).length);
-                    //console.log('data.SEARCH: ', data.SEARCH);
-                    //console.log('=============================================');
-
-
-                    let obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
-                    let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
-
-                    this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV);
-
                 }
-
-            }
+            }catch(e){}
 
         });
 
@@ -353,6 +391,23 @@ export default class SearchResultList extends Component {
 
         });
 
+        let pageHandlerMobile = () => {
+            const pagesTotal = Math.ceil(this.searchLength / this.itemsPerPage);
+
+            if(($('.tour-search__results__list').height() - $('#body').scrollTop()) < 1000){
+                if (this.state.page < pagesTotal) {
+                    this.setState({page: this.state.page + 1});
+                }
+            }
+
+        }
+
+        if(this.state.isMobile){
+            $(window).on('scroll', pageHandlerMobile);
+        }else{
+            $(window).off('scroll', pageHandlerMobile);
+        }
+
 
         this.updAddFilterScroll();
 
@@ -366,7 +421,7 @@ export default class SearchResultList extends Component {
             $('.tour-addit__filter__dropdown').height(wH - fH);
 
             var pane = $('.tour-addit__filter__dropdown.scroll-content');
-            
+
             pane.jScrollPane({});
 
             $('.tour-addit__filter__dropdown').addClass('jspScrollable');
@@ -377,7 +432,90 @@ export default class SearchResultList extends Component {
         }
     }
 
+
     getNtkHotelList() {
+        if(!this.NTK_API_IN.Destination) return;
+        let NTK_API_IN = this.NTK_API_IN_ARRAY.shift();
+
+        if(!NTK_API_IN || !this.NTK_API_IN.Destination){
+            this.setState({isNtkCompleted: 0});
+            return;
+        }
+
+
+        let xhr = $.ajax({
+            url: this.ajaxUrl,
+            data: {
+                selectedHotels: this.selectedHotels,
+                NTK_API_IN,
+                ajax: 'Y',
+                origUrl: document.location.href
+            },
+            timeout: 10000,
+            dataType: 'json',
+            cache: false,
+        }).always(data => {
+
+            try{
+                if (data && data.SEARCH instanceof Object) {
+
+                if(data.TIME_LABELS.getPricesByHotelsNTK){
+                    //console.log('data.TIME_LABELS: ', data.TIME_LABELS.getHotelsInfo);
+                    console.log('data.TIME_LABELS.getPricesByHotelsNTK.time: ', data.TIME_LABELS.getPricesByHotelsNTK.time);
+                }
+
+                let minServices = '';
+                if (+NTK_API_IN['FlightType'] == 1) {
+                    minServices = 'перелет, проживание';
+                } else if (+NTK_API_IN['FlightType'] == 2) {
+                    minServices = 'проживание';
+                } else if (0) { // todo - жд перевозки
+                    minServices = '';
+                }
+
+                for (let key in data.SEARCH) {
+                    let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                    if (!hotelInfo) {
+                        //console.log('delkeyntk: ', key);
+                        delete data.SEARCH[key];
+                        continue;
+                    }
+
+                    data.SEARCH[key].minServices = minServices;
+                    data.SEARCH[key].Price = +data.SEARCH[key].Price;
+
+                    data.SEARCH[key].ntk = true;
+
+
+                }
+
+                let obSearch = {};
+
+                if (+NTK_API_IN['FlightType'] === 2) { // туры с перелетом перекрывают то что уже получено
+                    obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
+                } else {
+                    obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
+                }
+
+
+
+                let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
+
+                this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV, true);
+
+                this.getNtkHotelList();
+
+            }
+            }catch(e){}
+        });
+
+        this.arXHRsPush(xhr);
+
+
+    }
+
+
+    getNtkHotelList__bk() {
 
 
         if (this.NTK_API_IN.Destination) {
@@ -394,54 +532,58 @@ export default class SearchResultList extends Component {
                         ajax: 'Y',
                         origUrl: document.location.href
                     },
+                    timeout: 10000,
                     dataType: 'json',
                     cache: false,
-                }).done(data => {
+                }).always(data => {
 
-                    if (data && data.SEARCH instanceof Object) {
+                    try{
+                        if (data && data.SEARCH instanceof Object) {
+
+                            console.log('data: ', data);
+                            //console.log('data.TIME_LABELS: ', data.TIME_LABELS.getHotelsInfo.time);
+
+                            let minServices = '';
+                            if (+NTK_API_IN['FlightType'] == 1) {
+                                minServices = 'перелет, проживание';
+                            } else if (+NTK_API_IN['FlightType'] == 2) {
+                                minServices = 'проживание';
+                            } else if (0) { // todo - жд перевозки
+                                minServices = '';
+                            }
+
+                            for (let key in data.SEARCH) {
+                                let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
+                                if (!hotelInfo) {
+                                    //console.log('delkeyntk: ', key);
+                                    delete data.SEARCH[key];
+                                    continue;
+                                }
+
+                                data.SEARCH[key].minServices = minServices;
+                                data.SEARCH[key].Price = +data.SEARCH[key].Price;
+
+                                data.SEARCH[key].ntk = true;
 
 
-                        let minServices = '';
-                        if (+NTK_API_IN['FlightType'] == 1) {
-                            minServices = 'перелет, проживание';
-                        } else if (+NTK_API_IN['FlightType'] == 2) {
-                            minServices = 'проживание';
-                        } else if (0) { // todo - жд перевозки
-                            minServices = '';
-                        }
+                            }
 
-                        for (let key in data.SEARCH) {
-                            let hotelInfo = this.state.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID] || data.HOTELS_INFO[data.SEARCH[key].HOTEL_INFO_ID];
-                            if (!hotelInfo) {
-                                console.log('delkeyntk: ', key);
-                                delete data.SEARCH[key];
-                                continue;
+                            let obSearch = {};
+
+                            if (+pack['FlightType'] === 2) { // туры с перелетом перекрывают то что уже получено
+                                obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
+                            } else {
+                                obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
                             }
 
 
-                            data.SEARCH[key].minServices = minServices;
-                            data.SEARCH[key].Price = +data.SEARCH[key].Price;
 
-                            data.SEARCH[key].ntk = true;
+                            let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
 
+                            this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV, true);
 
                         }
-
-                        let obSearch = {};
-
-                        if (+pack['FlightType'] === 2) { // туры с перелетом перекрывают то что уже получено
-                            obSearch = Object.assign({}, data.SEARCH, this.state.SEARCH);
-                        } else {
-                            obSearch = Object.assign({}, this.state.SEARCH, data.SEARCH);
-                        }
-
-
-                        
-                        let hotelsInfo = Object.assign({}, this.state.HOTELS_INFO, data.HOTELS_INFO);
-
-                        this.resultsHandler(obSearch, hotelsInfo, data.USER_FAV, true);
-
-                    }
+                    }catch(e){}
                 });
 
                 this.arXHRsPush(xhr);
@@ -504,10 +646,34 @@ export default class SearchResultList extends Component {
 
     componentDidMount() {
 
+        var timerId = setTimeout(() => {
+            this.setState({
+                chkLTResNum: 777,
+                isLLCompleted: true,
+                isNtkCompleted: 0,
+                isSearchWasStarted: true,
+                isForcedStop: true,
+            });
+
+            if(this.arXHRs instanceof Array){
+                this.arXHRs.forEach(function(xhr, i) {
+                    xhr.abort();
+                });
+            }
+        }, 60000);
+
+        this.prepareNtkApiInArray();
+
         this.getNtkHotelList();
         this.getLTHotelList();
 
         this.updAddFilterScroll();
+
+        $(window).on('resize', () => {
+            this.setState({
+                isMobile: ($(window).width() <= 768) ? true : false,
+            });
+        });
 
     }
 
@@ -515,17 +681,14 @@ export default class SearchResultList extends Component {
 
         let sliderSetting = {
             accessibility: false,
-            dots: false,
+            slidesToShow: 1,
+            slidesToScroll: 1,
             arrows: true,
-            fade: true,
+            dots: true,
             className: 'carousel carousel-in',
         };
 
         let hotels = search.map((hotel, idx) => {
-
-            //console.log('this.state.curDate: ', this.state.curDate);
-            //console.log('hotel: ', hotel);
-            //console.log('==============================');
 
             let hotelInfo = this.state.HOTELS_INFO[hotel.HOTEL_INFO_ID];
             const priceForPrint = numberFormat(+hotel.Price, 0, '', ' ',);
@@ -611,6 +774,14 @@ export default class SearchResultList extends Component {
 
             minHeight = wH - fH - 100;
         }catch(e){}
+
+        if(this.state.isMobile){
+            return(
+                <ul className="list -inline tour-search__results__list scroll-content">
+                    {hotels}
+                </ul>
+            )
+        }
 
         return (
             <ul className="list -inline tour-search__results__list scroll-content">
@@ -780,10 +951,8 @@ export default class SearchResultList extends Component {
     renderDates() {
 
         let arDates = Object.values(this.state.dates).sort((i, j) => i.ts - j.ts);
-        console.log('arDates: ', arDates);
 
         if (!arDates.length) return;
-
 
         return (
             <div className="region-left col__left -col-60">
@@ -1045,7 +1214,7 @@ export default class SearchResultList extends Component {
         }
 
 
-        console.time("Pre render ");
+
 
         const mapTriggerLabel = this.state.isMapWide ? 'Скрыть' : 'Развернуть';
         const mapTriggerIcon = this.state.isMapWide ? 'icon-arrow-right' : 'icon-arrow-left';
@@ -1072,12 +1241,11 @@ export default class SearchResultList extends Component {
             this.renderMapPoints(search);
         }
 
-        console.timeEnd("Pre render ");
 
         this.searchLength = search.length;
 
         search = search.slice(0, 20 * this.state.page);
-        //console.log('Object.keys(this.state.SEARCH).length: ', Object.keys(this.state.SEARCH).length);
+
         return (
             <div className="inner">
                 {this.renderFilter()}
@@ -1085,7 +1253,7 @@ export default class SearchResultList extends Component {
                     <div className="col__left -col-60 content-region-left">
                         <h2>
                             {this.searchLength ? `Поиск тура: найдено предложений ${this.searchLength}` : ''}
-                            {this.searchLength && !this.isLoadingCompleted() ? <LoaderMini /> : '' }
+                            {!this.state.isForcedStop && this.searchLength && !this.isLoadingCompleted() ? <LoaderMini /> : '' }
                         </h2>
                     </div>
                 </div>
@@ -1095,7 +1263,7 @@ export default class SearchResultList extends Component {
 
                             <div className="row tour-search">
 
-                                {!Object.keys(this.state.SEARCH).length && !this.isAllXHRCompleted() ? <Loader />
+                                {!this.state.isForcedStop && !Object.keys(this.state.SEARCH).length && !this.isAllXHRCompleted() ? <Loader />
                                     : [
                                         <div key="map" className={tourSearchMap}>
                                             <div className="tour-search__map__wrap">
@@ -1157,9 +1325,9 @@ export default class SearchResultList extends Component {
         const searchLength = Object.keys(this.state.SEARCH).length;
 
         if (searchLength) return this.renderHotels(search);
-        if (!searchLength && !this.isAllXHRCompleted()) return <Loader/>;
-        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Ничего не
-            найдено</h2>;
+        if (!this.state.isForcedStop && !searchLength && !this.isAllXHRCompleted()) return <Loader/>;
+        if (this.state.isForcedStop && !searchLength) return <h2>Ничего не найдено. Повторите поиск чуть позже</h2>;
+        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Ничего не найдено</h2>;
     }
 
 
@@ -1628,8 +1796,10 @@ export default class SearchResultList extends Component {
             let date2add = momentDate.add(1, 'day');
             const dateRaw = date2add.format('DD.MM.YYYY');
 
+
             dates[dateRaw] = {
                 ts: +date2add.format('X'),
+
                 dateRaw: dateRaw,
                 dayOfWeek: date2add.format('dddd'),
                 dayAndMonth: date2add.format('D MMMM'),
@@ -1662,7 +1832,6 @@ export default class SearchResultList extends Component {
     }
 
     onWeekFilterClick(curDate) {
-        return false;// временно отключаем
         let {priceFrom, priceTo} = this.state.dates[curDate];
 
         priceFrom = Math.floor(priceFrom / 1000) * 1000;
@@ -1871,8 +2040,7 @@ export default class SearchResultList extends Component {
                         </div>
                     )
                 } else {
-                    //printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
-                    printPriceMinTopSlider = '';
+                    printPriceMinTopSlider = <div className="tour-week__filter__item__price">Нет туров</div>;
                 }
 
                 dates[key].printPriceMinTopSlider = printPriceMinTopSlider;
@@ -1897,20 +2065,12 @@ export default class SearchResultList extends Component {
 
         // фильтро по обводке
         if (this.state.coordinates.length && this.state.markers) {
-            console.time("фильтро по обводке time");
             search = search.filter(i => this.map.markers[i.HOTEL_INFO_ID])
-            console.timeEnd("фильтро по обводке time");
         }
 
-        console.time("curDate filter time");
         search = search.filter(i => (i.HotelLoadDate === this.state.curDate));
 
-        console.timeEnd("curDate filter time");
-
-        console.time("price filter time");
         search = search.filter(i => (i.Price >= filter.priceFrom && i.Price <= filter.priceTo));
-        console.timeEnd("price filter time");
-
 
         // ФИЛЬТР ПО РЕГИОНАМ
         if (filter.arRegions.length) {
@@ -1931,17 +2091,13 @@ export default class SearchResultList extends Component {
             });
         }
 
-
-        console.time("stars filter time");
         if (filter.starsFrom > 0) {
             search = search.filter(i => {
                 const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
                 return hotelInfo && hotelInfo.STARS_INT && hotelInfo.STARS_INT >= filter.starsFrom;
             });
         }
-        console.timeEnd("stars filter time");
 
-        console.time('services filter time');
         if (filter.arServices.length) {
             search = search.filter(i => {
                 const hotelInfo = this.state.HOTELS_INFO[i.HOTEL_INFO_ID];
@@ -1954,16 +2110,12 @@ export default class SearchResultList extends Component {
                 return false;
             });
         }
-        console.timeEnd('services filter time');
 
 
-        console.time("sort by price");
         search = search.sort((i, j) => {
             if (filter.sort == 'asc') return i.Price - j.Price;
             if (filter.sort == 'desc') return j.Price - i.Price;
         });
-
-        console.timeEnd("sort by price");
 
         this.renderMapPoints(search);
 
