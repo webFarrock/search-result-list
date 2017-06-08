@@ -768,12 +768,10 @@ export default class SearchResultList extends Component {
 
 
         let minHeight = $(".tour-search__map").height()-30;
-        try{
-            var wH = $(window).height();
-            var fH = $('.tour-addit__filter__top').offset().top + $('.tour-addit__filter__top__inner').outerHeight();
 
-            minHeight = wH - fH - 100;
-        }catch(e){}
+        try{
+            minHeight = $(window).height() - $('.col__middle.tour-search__results').offset().top
+        }catch(e){}   
 
         if(this.state.isMobile){
             return(
@@ -828,7 +826,14 @@ export default class SearchResultList extends Component {
             page: 1,
         });
 
-        this.refs.scrollbars.scrollTop(0);
+        const {scrollbars} = this.refs;
+
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
+
     }
 
     getFiltersNum() {
@@ -1697,7 +1702,13 @@ export default class SearchResultList extends Component {
         });
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
+
 
     }
 
@@ -1726,7 +1737,11 @@ export default class SearchResultList extends Component {
         });
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
 
     }
 
@@ -1755,7 +1770,11 @@ export default class SearchResultList extends Component {
         });
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
 
     }
 
@@ -1766,7 +1785,11 @@ export default class SearchResultList extends Component {
         });
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
     }
 
     setSort(sort) {
@@ -1778,7 +1801,11 @@ export default class SearchResultList extends Component {
         });
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
     }
 
     initDatesList() {
@@ -1852,12 +1879,17 @@ export default class SearchResultList extends Component {
         }
 
         const {scrollbars} = this.refs;
-        scrollbars.scrollTop(0);
+        if(scrollbars){
+            scrollbars.scrollTop(0);
+        }else{
+            scrollTo(0, 0);
+        }
     }
 
     onScrollButtonClick() {
 
         const {scrollbars} = this.refs;
+        if(!scrollbars) return false;
 
         const scrollHeight = +scrollbars.getScrollHeight();
         const scrollTop = +scrollbars.getScrollTop();
