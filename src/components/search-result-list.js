@@ -25,6 +25,7 @@ export default class SearchResultList extends Component {
 
         window.reactApp = this;
 
+        this.isMobileDetect = window.RuInturistStore.IS_MOBILE;
         this.NTK_API_IN = window.RuInturistStore.NTK_API_IN;
         this.LL_API_IN = window.RuInturistStore.LL_API_IN;
         this.curDate = window.RuInturistStore.initForm.dateFrom
@@ -1293,11 +1294,7 @@ export default class SearchResultList extends Component {
                                                         <span className={mapTriggerIcon}></span>
                                                         <span className="label">{mapTriggerLabel}</span>
                                                     </div>}
-                                                {!this.state.yandexMapInited ? '' : <div
-                                                    onClick={this.renderButtonClick}
-                                                    className="tour-search__map__draw">
-                                                    <span>{renderButtonCaption}</span>
-                                                </div>}
+                                                {this.renderRenderButton(renderButtonCaption)}
 
                                             </div>
                                         </div>,
@@ -1323,6 +1320,25 @@ export default class SearchResultList extends Component {
 
         );
     }
+
+    renderRenderButton(renderButtonCaption){
+        if (this.isMobileDetect){
+            return;
+        }
+
+        if (!this.state.yandexMapInited){
+            return;
+        }
+
+        return (
+            <div
+                onClick={this.renderButtonClick}
+                className="tour-search__map__draw">
+                <span>{renderButtonCaption}</span>
+            </div>
+        );
+    }
+
 
 
     renderSearchArea(search) {
