@@ -1330,9 +1330,9 @@ export default class SearchResultList extends Component {
         const searchLength = Object.keys(this.state.SEARCH).length;
 
         if (searchLength) return this.renderHotels(search);
-        if (!this.state.isForcedStop && !searchLength && !this.isAllXHRCompleted()) return <Loader/>;
-        if (this.state.isForcedStop && !searchLength) return <h2>Ничего не найдено. Повторите поиск чуть позже</h2>;
-        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Ничего не найдено</h2>;
+        if (!this.state.isForcedStop && !searchLength && !this.isAllXHRCompleted()) return <Loader/>;  
+        if (this.state.isForcedStop && !searchLength) return <h2>Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
+        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
     }
 
 
