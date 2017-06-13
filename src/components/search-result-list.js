@@ -647,6 +647,13 @@ export default class SearchResultList extends Component {
 
     componentDidMount() {
 
+        $('body').on('click', '.balloon.hoteldetail', function(e){
+            let href = $(this).data('href');
+            if(href){
+                document.location.href = href;
+            }
+        });
+
         var timerId = setTimeout(() => {
             this.setState({
                 chkLTResNum: 777,
