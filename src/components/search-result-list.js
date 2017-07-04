@@ -76,7 +76,7 @@ export default class SearchResultList extends Component {
             {name: 'Паркинг', className: 'icon-hotel-datailed-option-2'},
             {name: 'Спортзал', className: 'icon-hotel-datailed-option-5'},
             {name: 'Пляж', className: 'icon-hotel-datailed-option-9'},
-            {name: 'Кондиционер', className: 'icon-hotel-datailed-option-6'},
+            {name: 'Рум сервис', className: 'icon-hotel-datailed-option-6'},
             {name: 'Питомцы', className: 'icon-hotel-datailed-option-7'},
             {name: 'Медпункт', className: 'icon-hotel-datailed-option-8'},
 
@@ -357,11 +357,26 @@ export default class SearchResultList extends Component {
         this.arXHRsPush(xhr);
     }
 
+    updMapHeight(){
+        try{
+
+        $('#map, #map .ymaps-2-1-50-map, #canvas-on-map').height($(window).height()-$('.tour-search__map').offset().top);
+
+			if(this.map.entity){
+			    console.log('fitToViewport!');
+				this.map.entity.container.fitToViewport();
+
+			}
+
+		}catch(e){}
+    }
+
 
     componentDidUpdate() {
         initSliderRange(this);
         initSliderStars(this);
         initWeekFilter(this);
+		this.updMapHeight();
 
 
         this.initMap();
@@ -377,6 +392,7 @@ export default class SearchResultList extends Component {
 
 
         $(window).on('resize', () => {
+			this.updMapHeight();
             initWeekFilter(this);
             //this.updAddFilterScroll();
 
@@ -1354,8 +1370,8 @@ export default class SearchResultList extends Component {
 
         if (searchLength) return this.renderHotels(search);
         if (!this.state.isForcedStop && !searchLength && !this.isAllXHRCompleted()) return <Loader/>;  
-        if (this.state.isForcedStop && !searchLength) return <h2>Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
-        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2>Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
+        if (this.state.isForcedStop && !searchLength) return <h2 className="empty-search-result">Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
+        if (!searchLength && this.isAllXHRCompleted() && this.state.isSearchWasStarted) return <h2 className="empty-search-result">Увы, на такое количество дней туров ненашлось. Попробуйте увеличить или сократить продолжительность поездки</h2>;
     }
 
 
