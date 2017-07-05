@@ -359,11 +359,12 @@ export default class SearchResultList extends Component {
 
     updMapHeight(){
         try{
+            
+            let $w = $(window);
 
-        $('#map, #map .ymaps-2-1-50-map, #canvas-on-map').height($(window).height()-$('.tour-search__map').offset().top);
+			$('#map, #map>ymaps, #map>ymaps>ymaps, #canvas-on-map').height($w.height()-$('.tour-search__map').offset().top);
 
 			if(this.map.entity){
-			    console.log('fitToViewport!');
 				this.map.entity.container.fitToViewport();
 
 			}
@@ -662,6 +663,8 @@ export default class SearchResultList extends Component {
 
 
     componentDidMount() {
+
+		this.updMapHeight();
 
         $('body').on('click', '.balloon.hoteldetail', function(e){
             let href = $(this).data('href');
