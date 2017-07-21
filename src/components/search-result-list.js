@@ -724,8 +724,8 @@ export default class SearchResultList extends Component {
             const isInFav = this.state.USER_FAV.indexOf(hotel.bxHotelId) !== -1;
 
             return (
-                <li className="list__item"
-                    key={idx}
+                <li className="list__item" data-bxhid={hotel.bxHotelId}
+                    key={hotel.bxHotelId}
                     onMouseEnter={() => this.onHotelMouseEnter(hotel.HOTEL_INFO_ID)}
                     onMouseLeave={() => this.onHotelMouseLeave(hotel.HOTEL_INFO_ID)}
                 >

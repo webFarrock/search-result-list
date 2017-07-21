@@ -6,10 +6,25 @@ var plugins = [];
 
 if(NODE_ENV != 'development'){
     plugins.push(new webpack.optimize.UglifyJsPlugin({
+        beautify: false,
+        comments: false,
         compress: {
-            warnings: false
+            sequences     : true,
+            booleans      : true,
+            loops         : true,
+            unused      : true,
+            warnings    : false,
+            drop_console: true,
+            unsafe      : true
         },
         sourceMap: false,
+    }));
+
+
+    plugins.push(new webpack.DefinePlugin({
+        "process.env": {
+            NODE_ENV: JSON.stringify("production")
+        }
     }));
 }
 

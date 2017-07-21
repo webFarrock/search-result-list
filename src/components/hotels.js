@@ -25,8 +25,8 @@ export default (props) => {
         const isInFav = USER_FAV.indexOf(hotel.bxHotelId) !== -1;
 
         return (
-            <li className="list__item"
-                key={idx}
+            <li className="list__item" data-bxhid={hotel.bxHotelId}
+                key={hotel.bxHotelId}
             >
                 <div className="row hotel-card">
                     <div className="hotel-card__actions">
